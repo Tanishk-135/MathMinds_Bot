@@ -1,7 +1,7 @@
 // -------------------------
 // Module & Variable Setup
 // -------------------------
-const { Client, GatewayIntentBits, Partials } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, PermissionsBitField } = require('discord.js');
 const express = require('express');
 const cron = require('node-cron');
 const https = require('https');
@@ -44,12 +44,7 @@ app.get("/status", (req, res) => {
   });
 });
 
-setInterval(() => {
-  const pingUrl = "https://your-replit-status-url/status";
-  https.get(pingUrl).on('error', (err) => {
-    console.error(`Keep-alive ping failed: ${err.message}`);
-  });
-}, 60 * 1000);
+// (Keep-alive ping has been removed as it's no longer needed)
 
 app.listen(PORT, '0.0.0.0', () =>
   console.log(`Express server is running on port ${PORT}`)
@@ -120,8 +115,8 @@ client.on("messageCreate", (message) => {
       return message.reply("This command can only be used in a server.");
     }
     
-    // Check if the issuer has permission to kick members
-    if (!message.member.permissions.has("KICK_MEMBERS")) {
+    // Check if the issuer has permission to kick members (using PermissionsBitField.Flags)
+    if (!message.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
       return message.reply("You don't have permission to kick members.");
     }
     
@@ -131,7 +126,7 @@ client.on("messageCreate", (message) => {
       return message.reply("Please mention the member you want to kick. Usage: `!kick @user [reason]`");
     }
     
-    // Extract reason if provided; if not, use default message
+    // Extract reason if provided; if not, use default
     const args = message.content.split(" ").slice(2).join(" ");
     const kickReason = args || "No reason provided.";
     
@@ -158,8 +153,8 @@ client.on("messageCreate", (message) => {
       return message.reply("This command can only be used in a server.");
     }
     
-    // Check if the issuer has permission to ban members
-    if (!message.member.permissions.has("BAN_MEMBERS")) {
+    // Check if the issuer has permission to ban members (using PermissionsBitField.Flags)
+    if (!message.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
       return message.reply("You don't have permission to ban members.");
     }
     
@@ -169,7 +164,7 @@ client.on("messageCreate", (message) => {
       return message.reply("Please mention the member you want to ban. Usage: `!ban @user [reason]`");
     }
     
-    // Extract reason if provided; if not, use default message
+    // Extract reason if provided; if not, use default
     const args = message.content.split(" ").slice(2).join(" ");
     const banReason = args || "No reason provided.";
     
