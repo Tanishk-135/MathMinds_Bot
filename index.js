@@ -49,7 +49,9 @@ setInterval(() => {
   });
 }, 60 * 1000);
 
-app.listen(PORT, '0.0.0.0', () => console.log(`Express server is running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () =>
+  console.log(`Express server is running on port ${PORT}`)
+);
 
 // -------------------------
 // Discord Bot Code
@@ -61,39 +63,50 @@ client.once('ready', () => {
 
 // Command Handler
 client.on("messageCreate", (message) => {
+  // Ignore messages from bots
   if (message.author.bot) return;
   
-  // Convert message to trimmed, lower-case string
+  // Log the raw message content as received
+  console.log(`RAW message received: "${message.content}" from ${message.author.id}`);
+  
+  // Convert the incoming message to a trimmed, lower-case command string
   const command = message.content.trim().toLowerCase();
-  console.log(`Received message: "${command}" from ${message.author.id}`);
-
-  // !hello Command
+  console.log(`Processed command: "${command}"`);
+  
+  // !hello Command: Simple test environment
   if (command === "!hello") {
     console.log("Processing !hello command...");
     message.reply("Hey there! MathMinds Bot is online and ready to solve some math problems. 🚀");
   }
   
-  // !restart Command: first check if command contains "restart" anywhere
-  if (command.includes("restart")) {
-    console.log(`Restart keyword detected in message from ${message.author.tag} (ID: ${message.author.id}). Full command: "${command}"`);
+  // Temporary test command to ensure restart code can be reached
+  if (command === "!testrestart") {
+    console.log("Test restart command received.");
+    message.reply("Test restart works! (This is just a test, not restarting.)");
+  }
+  
+  // !restart Command using startsWith to catch extra characters
+  if (command.startsWith("!restart")) {
+    console.log(`Restart command detected from ${message.author.tag} (ID: ${message.author.id}).`);
+    console.log(`Full command received: "${command}"`);
     
-    // Now check for exact match (or prefix) to avoid accidental triggers
-    if (command.startsWith("!restart")) {
-      if (message.author.id !== BOT_OWNER_ID) {
-        console.log(`User not authorized: expected ${BOT_OWNER_ID} but received ${message.author.id}`);
-        return message.reply(`🚫 Only the bot owner can restart me! Your ID: ${message.author.id}`);
-      }
-      // Confirm reply then restart after a short delay
-      message.reply("Restarting bot now...").then(() => {
-        console.log("Bot is restarting now...");
-        setTimeout(() => {
-          console.log("Exiting process now...");
-          process.exit(1);
-        }, 500);
-      });
+    // Check if the user is the bot owner
+    if (message.author.id !== BOT_OWNER_ID) {
+      console.log(`Unauthorized restart attempt. Expected BOT_OWNER_ID: ${BOT_OWNER_ID}, but received: ${message.author.id}`);
+      return message.reply(`🚫 Only the bot owner can restart me! Your ID: ${message.author.id}`);
     }
+    
+    // Proceed with restart
+    message.reply("Restarting bot now...").then(() => {
+      console.log("Bot is restarting now...");
+      // Delay to ensure reply and logs are flushed
+      setTimeout(() => {
+        console.log("Exiting process now...");
+        process.kill(process.pid, 'SIGTERM');
+      }, 500);
+    });
   }
 });
 
-// Log in using the bot token
+// Log in using the bot token from your .env file
 client.login(process.env.DISCORD_BOT_TOKEN);
