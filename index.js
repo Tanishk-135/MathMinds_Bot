@@ -6,6 +6,7 @@ const express = require('express');
 const cron = require('node-cron');
 const https = require('https');
 const http = require('http');
+require('dotenv').config();
 
 // Define PORT before using it
 const PORT = process.env.PORT || 3000;
