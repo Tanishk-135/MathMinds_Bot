@@ -63,17 +63,17 @@ client.once('ready', () => {
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
   
-  // Convert incoming message to a trimmed and lowercased command string.
+  // Convert incoming message to a trimmed, lowercased command
   const command = message.content.trim().toLowerCase();
   console.log(`Received message: "${command}" from ${message.author.id}`);
-
+  
   // !hello Command
   if (command === "!hello") {
     console.log("Processing !hello command...");
     message.reply("Hey there! MathMinds Bot is online and ready to solve some math problems. 🚀");
   }
   
-  // !restart Command (using startsWith to catch extra characters, with extra logging)
+  // !restart Command (using startsWith to catch any extra accidental characters)
   if (command.startsWith("!restart")) {
     console.log(`Restart command detected from ${message.author.tag} (ID: ${message.author.id}).`);
     console.log(`Full command received: "${command}"`);
@@ -85,8 +85,11 @@ client.on("messageCreate", (message) => {
     
     message.reply("Restarting bot now...").then(() => {
       console.log("Bot is restarting now...");
-      // Delay exit for 1sec to let logs flush
-      setTimeout(() => process.exit(1), 1000);
+      // Use a short delay and then force kill the process.
+      setTimeout(() => {
+        console.log("Exiting process now using process.kill()");
+        process.kill(process.pid, 'SIGTERM');
+      }, 500);
     });
   }
 });
