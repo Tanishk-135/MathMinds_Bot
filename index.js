@@ -473,7 +473,7 @@ client.on("messageCreate", async (message) => {
     if (isNaN(amount) || amount < 1) return message.reply("Please specify a valid number of messages to delete.");
     
     // Fetch messages with limit (amount + 1 to include the command message)
-    message.channel.messages.fetch({ limit: amount + 1 })
+    message.channel.messages.fetch({ limit: amount })
       .then(fetched => {
           // Filter out messages older than 14 days, as Discord won't delete those
           const deletable = fetched.filter(m => (Date.now() - m.createdTimestamp) < 14 * 24 * 60 * 60 * 1000);
