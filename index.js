@@ -67,16 +67,17 @@ client.on("messageCreate", (message) => {
   if (message.content.toLowerCase() === "!hello") {
     message.reply("Hey there! MathMinds Bot is online and ready to solve some math problems. 🚀");
   }
-
-  // Restart Command
+  
+// Restart
   if (message.content.toLowerCase() === "!restart") {
-    if (message.author.id !== BOT_OWNER_ID) {
-      return message.reply("🚫 Only the bot owner can restart me!");
-    }
-
-    message.reply("Restarting bot...").then(() => {
-      process.exit(1); // Forces bot exit for PM2 restart
-    });
+      if (message.author.id !== BOT_OWNER_ID) {
+          return message.reply(`🚫 Only the bot owner can restart me! Your ID: ${message.author.id}`);
+      }
+  
+      message.reply("Restarting bot...").then(() => {
+          console.log("Restarting bot now...");
+          process.exit(1);
+      });
   }
 });
 
