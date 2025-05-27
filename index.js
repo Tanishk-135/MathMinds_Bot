@@ -64,15 +64,15 @@ client.on("messageCreate", (message) => {
   if (message.author.bot) return;
   
   // Debugging: Log all received messages
-  console.log(`Received message: "${message.content}" from ${message.author.id}`);
-  
+  console.log(`Received message: "${message.content.trim().toLowerCase()}" from ${message.author.id}`);
+
   // !hello Command
-  if (message.content.toLowerCase() === "!hello") {
+  if (message.content.trim().toLowerCase() === "!hello") {
     message.reply("Hey there! MathMinds Bot is online and ready to solve some math problems. 🚀");
   }
   
   // !restart Command (with enhanced logging)
-  if (message.content.toLowerCase() === "!restart") {
+  if (message.content.trim().toLowerCase() === "!restart") {
     console.log(`Restart command detected from ${message.author.tag} (ID: ${message.author.id})`);
 
     if (message.author.id !== BOT_OWNER_ID) {
