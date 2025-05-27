@@ -1,18 +1,18 @@
 // -------------------------
 // Module & Variable Setup
 // -------------------------
-const {
-  Client,
-  GatewayIntentBits,
-  Partials,
-  PermissionsBitField
+const { 
+  Client, 
+  GatewayIntentBits, 
+  Partials, 
+  PermissionsBitField 
 } = require('discord.js');
 const express = require('express');
-const cron = require('node-cron'); // (optional: used by daily summary)
+const cron = require('node-cron'); // (unused now but kept for possible future use)
 const https = require('https');
 const http = require('http');
-const crypto = require('crypto'); // To verify webhook signature
-const { exec } = require('child_process'); // To run shell commands
+const crypto = require('crypto');           // To verify webhook signature
+const { exec } = require('child_process');  // To run shell commands
 require('dotenv').config();
 
 console.log("NEW CODE IMPLEMENTED at " + new Date().toISOString());
@@ -21,8 +21,12 @@ const BOT_OWNER_ID = "922909884121505792"; // Your Discord ID
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "your_default_secret_here"; // Set a proper secret in .env
 
+// New: Added for persistent daily summary storage
+const fs = require('fs'); 
+const DAILY_JOINERS_FILE = './dailyJoiners.json';
+
 // -------------------------
-// Create Discord Client
+// Create Discord client
 // -------------------------
 const client = new Client({
   intents: [
@@ -39,8 +43,17 @@ const client = new Client({
 // -------------------------
 const app = express();
 
-// Parse JSON payloads (required for webhook processing)
-app.use(express.json({ limit: '5mb' }));
+// Modified to capture raw body for proper webhook signature verification
+app.use(express.json({ 
+  limit: '5mb',
+  verify: (req, res, buf, encoding) => { req.rawBody = buf; }
+}));
+
+// New: Middleware to set a request timeout warning
+app.use((req, res, next) => {
+  res.setTimeout(15000, () => { console.warn("Request taking too long!"); });
+  next();
+});
 
 app.get("/", (req, res) => {
   res.send("Bot is running!");
@@ -58,15 +71,16 @@ app.get("/status", (req, res) => {
 // -------------------------
 // GitHub Webhook Endpoint for Auto-Deploy
 // -------------------------
-// Middleware to verify GitHub webhook signature
+
+// Middleware that verifies GitHub webhook signature
 function verifyGitHubSignature(req, res, next) {
   const sigHeaderName = 'x-hub-signature-256';
   const signature = req.get(sigHeaderName) || '';
-
-  // Use the JSON string of the parsed body to compute the digest.
+  
+  // Compute HMAC digest using the webhook secret and the raw body (instead of JSON.stringify(req.body))
   const hmac = crypto.createHmac('sha256', WEBHOOK_SECRET);
-  const digest = 'sha256=' + hmac.update(JSON.stringify(req.body)).digest('hex');
-
+  const digest = 'sha256=' + hmac.update(req.rawBody).digest('hex');
+  
   if (signature !== digest) {
     console.error("GitHub webhook signature mismatch!");
     return res.status(401).send('Signature mismatch');
@@ -98,12 +112,24 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
-// ----- Added DM & Join Log Features from Old Code -----
-
-// Global array for daily summary of new joiners (optional)
+// -------------------------
+// Persistent Storage for daily joiners
+// -------------------------
 let dailyJoiners = [];
+// Load persistent daily joiners if file exists
+try {
+  if (fs.existsSync(DAILY_JOINERS_FILE)) {
+    dailyJoiners = JSON.parse(fs.readFileSync(DAILY_JOINERS_FILE, 'utf-8'));
+  }
+} catch (err) {
+  console.error("Error loading persistent daily joiners: " + err);
+}
 
-// Math-themed DM questions array
+// -------------------------
+// DM & Join Log Features
+// -------------------------
+
+// Array containing 10 math-themed DM questions
 const dmQuestions = [
   "**What's your favorite branch of mathematics?**",
   "**Do you prefer algebra or geometry?**",
@@ -117,29 +143,29 @@ const dmQuestions = [
   "**Which area of math do you find most challenging (yet rewarding)?**"
 ];
 
-// Set to track recent joins to prevent duplicate processing
+// Temporary Set to store IDs of recently processed members (prevents duplicates)
 const recentJoins = new Set();
 
 client.on('guildMemberAdd', async (member) => {
-  // Prevent duplicate processing within a short window.
+  // Prevent duplicate processing
   if (recentJoins.has(member.id)) return;
   recentJoins.add(member.id);
-  setTimeout(() => recentJoins.delete(member.id), 10000); // Remove after 10 seconds
+  setTimeout(() => recentJoins.delete(member.id), 10000); // 10-second window
 
-  // If the member is partial, fetch their full data.
+  // Fetch the full member if needed
   if (member.partial) {
     try {
       await member.fetch();
     } catch (error) {
-      console.error("Error fetching member:", error);
+      console.error('Error fetching member:', error);
       return;
     }
   }
 
-  // Select a random math-themed question for the DM.
+  // Select a random math-themed question from the array
   const randomQuestion = dmQuestions[Math.floor(Math.random() * dmQuestions.length)];
 
-  // Construct the welcome DM message.
+  // Build a nicely formatted DM message
   const dmMessage = `
 Hello ${member.displayName},
 
@@ -149,20 +175,20 @@ A math puzzle to get you thinking:
 > ${randomQuestion}
 
 We're excited to have you join our community of math enthusiasts!
-Please introduce yourself in **🙋│introductions** and let the math conversation begin!
+Please introduce yourself in **🙋│introductions**, and let's talk math!
 
 🔢 **Happy Problem-Solving!**
 The MathMinds Team
   `.trim();
 
-  // Attempt to send a private DM.
   try {
     await member.send(dmMessage);
   } catch (err) {
-    console.error(`Could not DM ${member.user.tag}. They may have DMs disabled.`);
+    // Changed to warn so as not to overwhelm error logs if DMs are disabled.
+    console.warn(`Could not DM ${member.user.tag}. They may have DMs disabled.`);
   }
 
-  // Format the current time to IST in dd/MM/yyyy format.
+  // Format the current time in IST with day-month-year first format (dd/MM/yyyy)
   const now = new Date();
   const formattedTime = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Kolkata',
@@ -175,7 +201,7 @@ The MathMinds Team
     hour12: true
   }).format(now);
 
-  // Log the join event in the join-log channel (channel name must be "🔒│join-log")
+  // Log the join event in the designated join-log channel
   const joinLogChannel = member.guild.channels.cache.find(ch => ch.name === '🔒│join-log');
   if (joinLogChannel) {
     joinLogChannel.send(`**<@${member.id}>** joined on ${formattedTime}`);
@@ -183,23 +209,35 @@ The MathMinds Team
     console.error("Join log channel not found.");
   }
 
-  // Add the new member to the daily summary list (optional)
+  // Add the new member to the daily summary list (with persistent storage)
   dailyJoiners.push(member.toString());
+  try {
+    fs.writeFileSync(DAILY_JOINERS_FILE, JSON.stringify(dailyJoiners, null, 2));
+  } catch (err) {
+    console.error("Error writing daily joiners to file: " + err);
+  }
 });
 
-// Daily summary cron job (optional)
-// This sends a summary of new joiners to a "welcome" channel at midnight IST.
+// Cron job: Sends a daily welcome summary at midnight IST
 cron.schedule('0 0 * * *', () => {
   const guild = client.guilds.cache.first();
   if (!guild) {
     console.error("Bot is not part of any guild.");
     return;
   }
+
+  // Find the summary channel (named 'welcome')
   const welcomeChannel = guild.channels.cache.find(ch => ch.name === 'welcome');
   if (welcomeChannel) {
     if (dailyJoiners.length > 0) {
       welcomeChannel.send(`Welcome our new math enthusiasts:\n${dailyJoiners.join('\n')}`);
-      dailyJoiners = []; // Clear the summary list
+      // Reset the persistent daily joiners file after sending the summary
+      dailyJoiners = [];
+      try {
+        fs.writeFileSync(DAILY_JOINERS_FILE, JSON.stringify(dailyJoiners, null, 2));
+      } catch (err) {
+        console.error("Error clearing daily joiners file: " + err);
+      }
     } else {
       welcomeChannel.send("No new members joined in the last 24 hours.");
     }
@@ -210,9 +248,6 @@ cron.schedule('0 0 * * *', () => {
   scheduled: true,
   timezone: "Asia/Kolkata"
 });
-
-// ----- End of DM & Join Log Features -----
-
 
 // -------------------------
 // Command Handler
