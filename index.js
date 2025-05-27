@@ -63,30 +63,29 @@ client.once('ready', () => {
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
   
-  // Convert the incoming message to a trimmed, lowercased command
+  // Convert incoming message to a trimmed and lowercased command string.
   const command = message.content.trim().toLowerCase();
-  
-  // Debugging: Log all received messages
   console.log(`Received message: "${command}" from ${message.author.id}`);
-  
+
   // !hello Command
   if (command === "!hello") {
     console.log("Processing !hello command...");
     message.reply("Hey there! MathMinds Bot is online and ready to solve some math problems. 🚀");
   }
   
-  // !restart Command (with enhanced logging and slight delay)
-  if (command === "!restart") {
-    console.log(`Restart command detected from ${message.author.tag} (ID: ${message.author.id})`);
+  // !restart Command (using startsWith to catch extra characters, with extra logging)
+  if (command.startsWith("!restart")) {
+    console.log(`Restart command detected from ${message.author.tag} (ID: ${message.author.id}).`);
+    console.log(`Full command received: "${command}"`);
     
     if (message.author.id !== BOT_OWNER_ID) {
-      console.log(`User is not the owner. Expected: ${BOT_OWNER_ID}, but got: ${message.author.id}`);
+      console.log(`User is not the bot owner. Expected: ${BOT_OWNER_ID}, received: ${message.author.id}`);
       return message.reply(`🚫 Only the bot owner can restart me! Your ID: ${message.author.id}`);
     }
     
     message.reply("Restarting bot now...").then(() => {
       console.log("Bot is restarting now...");
-      // Delay exit to ensure all logs are flushed
+      // Delay exit for 1sec to let logs flush
       setTimeout(() => process.exit(1), 1000);
     });
   }
