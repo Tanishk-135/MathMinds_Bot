@@ -392,7 +392,7 @@ client.on("messageCreate", async (message) => {
 \`!userinfo\` - Show your user information.
 \`!uptime\` - Check how long the bot has been running.
 \`!clear [number]\` - Delete a specified number of messages.
-\`!mute @user [time]\` - Temporarily mute a user (requires a mute role).
+\`!mute @user [duration in minutes]\` - Temporarily mute a user (requires a mute role).
 \`!warn @user [reason]\` - Issue a warning to a user.
 (Plus existing moderation commands: \`!kick\`, \`!ban\`, \`!restart\`)
     `;
@@ -492,15 +492,22 @@ client.on("messageCreate", async (message) => {
   }
 
   // -------------------------
-  // New: Mute Command
+  // New: Timed Mute Command (Now supports duration)
   // -------------------------
   if (command.startsWith("!mute")) {
     if (!message.guild) return message.reply("This command can only be used in a server.");
     if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
       return message.reply("You don't have permission to mute members.");
     }
+    
+    const args = message.content.split(" ").slice(1);
     const memberToMute = message.mentions.members.first();
     if (!memberToMute) return message.reply("Please mention the member to mute.");
+    
+    // The duration should be provided as the second argument (in minutes)
+    const duration = parseInt(args[1]);
+    if (isNaN(duration) || duration < 1) return message.reply("Please provide a valid duration in minutes.");
+    
     let muteRole = message.guild.roles.cache.find(r => r.name.toLowerCase() === "muted");
     // If role doesn't exist, create it
     if (!muteRole) {
@@ -530,10 +537,18 @@ client.on("messageCreate", async (message) => {
         console.error(`Error updating permissions for channel ${channel.id}:`, error);
       }
     });
-
+    
     // Add the mute role to the member
     memberToMute.roles.add(muteRole)
-      .then(() => message.reply(`${memberToMute.user.tag} has been muted.`))
+      .then(() => {
+        message.reply(`${memberToMute.user.tag} has been muted for ${duration} minute(s).`);
+        // Schedule unmuting after the specified duration
+        setTimeout(() => {
+          memberToMute.roles.remove(muteRole)
+            .then(() => message.channel.send(`${memberToMute.user.tag} has been unmuted after ${duration} minute(s).`))
+            .catch(console.error);
+        }, duration * 60 * 1000); // Convert minutes to milliseconds
+      })
       .catch(err => {
         console.error(err);
         message.reply("Failed to mute the member.");
