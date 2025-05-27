@@ -1,19 +1,25 @@
 // -------------------------
 // Module & Variable Setup
 // -------------------------
-const { Client, GatewayIntentBits, Partials, PermissionsBitField } = require('discord.js');
+const { 
+  Client, 
+  GatewayIntentBits, 
+  Partials, 
+  PermissionsBitField 
+} = require('discord.js');
 const express = require('express');
-const cron = require('node-cron');
+const cron = require('node-cron'); // (unused now but kept for possible future use)
 const https = require('https');
 const http = require('http');
+const crypto = require('crypto');           // To verify webhook signature
+const { exec } = require('child_process');  // To run shell commands
 require('dotenv').config();
 
 console.log("NEW CODE IMPLEMENTED at " + new Date().toISOString());
 
 const BOT_OWNER_ID = "922909884121505792"; // Your Discord ID
-
-// Define PORT before using it
 const PORT = process.env.PORT || 3000;
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "your_default_secret_here"; // Set a proper secret in .env
 
 // Create Discord client
 const client = new Client({
@@ -31,6 +37,9 @@ const client = new Client({
 // -------------------------
 const app = express();
 
+// Use express.json() to parse JSON payloads (required for webhook)
+app.use(express.json({ limit: '5mb' }));
+
 app.get("/", (req, res) => {
   res.send("Bot is running!");
 });
@@ -44,8 +53,41 @@ app.get("/status", (req, res) => {
   });
 });
 
-// (Keep-alive ping has been removed as it's no longer needed)
+// -------------------------
+// GitHub Webhook Endpoint for Auto-Deploy
+// -------------------------
 
+// Middleware that verifies GitHub webhook signature
+function verifyGitHubSignature(req, res, next) {
+  const sigHeaderName = 'x-hub-signature-256';
+  const signature = req.get(sigHeaderName) || '';
+  
+  // Compute HMAC digest using the webhook secret and the raw body
+  // Note: Since we use express.json(), the raw body isn’t stored by default.
+  // For simplicity, we’ll use the JSON string of the parsed body.
+  const hmac = crypto.createHmac('sha256', WEBHOOK_SECRET);
+  const digest = 'sha256=' + hmac.update(JSON.stringify(req.body)).digest('hex');
+  
+  if (signature !== digest) {
+    console.error("GitHub webhook signature mismatch!");
+    return res.status(401).send('Signature mismatch');
+  }
+  next();
+}
+
+app.post('/github-deploy', verifyGitHubSignature, (req, res) => {
+  console.log('Received GitHub webhook. Pulling latest code and restarting bot...');
+  exec('git pull && pm2 restart mathminds-bot', (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Deployment error: ${error}`);
+      return res.status(500).send(`Error: ${error}`);
+    }
+    console.log(`Deployment output: ${stdout}`);
+    res.status(200).send('Deployment successful');
+  });
+});
+
+// Start Express server
 app.listen(PORT, '0.0.0.0', () =>
   console.log(`Express server is running on port ${PORT}`)
 );
@@ -53,7 +95,6 @@ app.listen(PORT, '0.0.0.0', () =>
 // -------------------------
 // Discord Bot Code
 // -------------------------
-
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
@@ -115,7 +156,7 @@ client.on("messageCreate", (message) => {
       return message.reply("This command can only be used in a server.");
     }
     
-    // Check if the issuer has permission to kick members (using PermissionsBitField.Flags)
+    // Check if the issuer has permission to kick members
     if (!message.member.permissions.has(PermissionsBitField.Flags.KickMembers)) {
       return message.reply("You don't have permission to kick members.");
     }
@@ -153,7 +194,7 @@ client.on("messageCreate", (message) => {
       return message.reply("This command can only be used in a server.");
     }
     
-    // Check if the issuer has permission to ban members (using PermissionsBitField.Flags)
+    // Check if the issuer has permission to ban members
     if (!message.member.permissions.has(PermissionsBitField.Flags.BanMembers)) {
       return message.reply("You don't have permission to ban members.");
     }
