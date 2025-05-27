@@ -8,7 +8,7 @@ const https = require('https');
 const http = require('http');
 require('dotenv').config();
 
-const BOT_OWNER_ID = "your_discord_user_id_here"; // Replace with your Discord ID
+const BOT_OWNER_ID = "922909884121505792"; // Replace with your Discord ID
 
 // Define PORT before using it
 const PORT = process.env.PORT || 3000;
