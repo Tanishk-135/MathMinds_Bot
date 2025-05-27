@@ -8,6 +8,8 @@ const https = require('https');
 const http = require('http');
 require('dotenv').config();
 
+console.log("NEW CODE IMPLEMENTED at " + new Date().toISOString());
+
 const BOT_OWNER_ID = "922909884121505792"; // Your Discord ID
 
 // Define PORT before using it
@@ -99,7 +101,7 @@ client.on("messageCreate", (message) => {
     // Proceed with restart
     message.reply("Restarting bot now...").then(() => {
       console.log("Bot is restarting now...");
-      // Delay to ensure reply and logs are flushed
+      // Delay to ensure reply and logs are flushed, then kill the process.
       setTimeout(() => {
         console.log("Exiting process now...");
         process.kill(process.pid, 'SIGTERM');
