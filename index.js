@@ -108,6 +108,82 @@ client.on("messageCreate", (message) => {
       }, 500);
     });
   }
+  
+  // -------------------------
+  // New: Kick Command Block
+  // -------------------------
+  if (command.startsWith("!kick")) {
+    console.log(`Kick command detected from ${message.author.tag} (ID: ${message.author.id}).`);
+    
+    // This command can only be used in a guild (server)
+    if (!message.guild) {
+      return message.reply("This command can only be used in a server.");
+    }
+    
+    // Check if the issuer has permission to kick members
+    if (!message.member.permissions.has("KICK_MEMBERS")) {
+      return message.reply("You don't have permission to kick members.");
+    }
+    
+    // Get the member to kick (first mentioned member)
+    const memberToKick = message.mentions.members.first();
+    if (!memberToKick) {
+      return message.reply("Please mention the member you want to kick. Usage: `!kick @user [reason]`");
+    }
+    
+    // Extract reason if provided; if not, use default message
+    const args = message.content.split(" ").slice(2).join(" ");
+    const kickReason = args || "No reason provided.";
+    
+    // Attempt to kick the member
+    memberToKick.kick(kickReason)
+      .then(() => {
+        message.reply(`Successfully kicked ${memberToKick.user.tag}. Reason: ${kickReason}`);
+        console.log(`Kicked member ${memberToKick.user.tag} successfully. Reason: ${kickReason}`);
+      })
+      .catch(error => {
+        console.error(`Error kicking member: ${error}`);
+        message.reply("An error occurred while trying to kick that member.");
+      });
+  }
+  
+  // -------------------------
+  // New: Ban Command Block
+  // -------------------------
+  if (command.startsWith("!ban")) {
+    console.log(`Ban command detected from ${message.author.tag} (ID: ${message.author.id}).`);
+    
+    // This command can only be used in a guild (server)
+    if (!message.guild) {
+      return message.reply("This command can only be used in a server.");
+    }
+    
+    // Check if the issuer has permission to ban members
+    if (!message.member.permissions.has("BAN_MEMBERS")) {
+      return message.reply("You don't have permission to ban members.");
+    }
+    
+    // Get the member to ban (first mentioned member)
+    const memberToBan = message.mentions.members.first();
+    if (!memberToBan) {
+      return message.reply("Please mention the member you want to ban. Usage: `!ban @user [reason]`");
+    }
+    
+    // Extract reason if provided; if not, use default message
+    const args = message.content.split(" ").slice(2).join(" ");
+    const banReason = args || "No reason provided.";
+    
+    // Attempt to ban the member
+    memberToBan.ban({ reason: banReason })
+      .then(() => {
+        message.reply(`Successfully banned ${memberToBan.user.tag}. Reason: ${banReason}`);
+        console.log(`Banned member ${memberToBan.user.tag} successfully. Reason: ${banReason}`);
+      })
+      .catch(error => {
+        console.error(`Error banning member: ${error}`);
+        message.reply("An error occurred while trying to ban that member.");
+      });
+  }
 });
 
 // Log in using the bot token from your .env file
