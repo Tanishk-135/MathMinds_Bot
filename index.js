@@ -63,16 +63,19 @@ client.once('ready', () => {
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
   
+  // Use a variable to safely process the command
+  const command = message.content.trim().toLowerCase();
+  
   // Debugging: Log all received messages
-  console.log(`Received message: "${message.content.trim().toLowerCase()}" from ${message.author.id}`);
+  console.log(`Received message: "${command}" from ${message.author.id}`);
 
   // !hello Command
-  if (message.content.trim().toLowerCase() === "!hello") {
+  if (command === "!hello") {
     message.reply("Hey there! MathMinds Bot is online and ready to solve some math problems. 🚀");
   }
   
   // !restart Command (with enhanced logging)
-  if (message.content.trim().toLowerCase() === "!restart") {
+  if (command === "!restart") {
     console.log(`Restart command detected from ${message.author.tag} (ID: ${message.author.id})`);
 
     if (message.author.id !== BOT_OWNER_ID) {
