@@ -70,16 +70,9 @@ client.on("messageCreate", (message) => {
   
 // Restart
   if (message.content.toLowerCase() === "!restart") {
-      console.log("Received !restart command from:", message.author.id);
-  
-      if (message.author.id !== BOT_OWNER_ID) {
-          return message.reply(`🚫 Only the bot owner can restart me! Your ID: ${message.author.id}`);
-      }
-  
-      message.reply("Restarting bot...").then(() => {
-          console.log("Restarting bot now...");
-          process.exit(1);
-      });
+      console.log("Restart command detected!");
+      message.reply("Restarting bot now...");
+      process.exit(1);
   }
 });
 
