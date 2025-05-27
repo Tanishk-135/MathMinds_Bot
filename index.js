@@ -61,6 +61,7 @@ client.once('ready', () => {
 
 // Command Handler
 client.on("messageCreate", (message) => {
+  console.log(`Received message: "${message.content}" from ${message.author.id}`);
   if (message.author.bot) return;
 
   if (message.content.toLowerCase() === "!hello") {
