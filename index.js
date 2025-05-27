@@ -5,7 +5,8 @@ const {
   Client, 
   GatewayIntentBits, 
   Partials, 
-  PermissionsBitField 
+  PermissionsBitField,
+  ChannelType
 } = require('discord.js');
 const express = require('express');
 const cron = require('node-cron'); // (unused now but kept for possible future use)
@@ -470,10 +471,23 @@ client.on("messageCreate", async (message) => {
     const args = message.content.split(" ").slice(1);
     const amount = parseInt(args[0]);
     if (isNaN(amount) || amount < 1) return message.reply("Please specify a valid number of messages to delete.");
-    message.channel.bulkDelete(amount + 1) // +1 to delete the command itself
-      .then(() => message.channel.send(`Deleted ${amount} messages.`).then(msg => {
-        setTimeout(() => msg.delete(), 5000);
-      }))
+    
+    // Fetch messages with limit (amount + 1 to include the command message)
+    message.channel.messages.fetch({ limit: amount + 1 })
+      .then(fetched => {
+          // Filter out messages older than 14 days, as Discord won't delete those
+          const deletable = fetched.filter(m => (Date.now() - m.createdTimestamp) < 14 * 24 * 60 * 60 * 1000);
+          if (deletable.size === 0) return message.reply("No messages eligible for deletion.");
+          message.channel.bulkDelete(deletable, true)
+            .then(deleted => {
+                message.channel.send(`Deleted ${deleted.size} message(s).`)
+                  .then(msg => setTimeout(() => msg.delete(), 5000));
+            })
+            .catch(err => {
+                console.error(err);
+                message.reply("An error occurred while trying to delete messages.");
+            });
+      })
       .catch(console.error);
   }
 
@@ -488,7 +502,36 @@ client.on("messageCreate", async (message) => {
     const memberToMute = message.mentions.members.first();
     if (!memberToMute) return message.reply("Please mention the member to mute.");
     let muteRole = message.guild.roles.cache.find(r => r.name.toLowerCase() === "muted");
-    if (!muteRole) return message.reply("No 'Muted' role found. Please create one.");
+    // If role doesn't exist, create it
+    if (!muteRole) {
+      try {
+        muteRole = await message.guild.roles.create({
+          name: "Muted",
+          permissions: []
+        });
+      } catch (err) {
+        console.error("Error creating Muted role: " + err);
+        return message.reply("Failed to create Muted role.");
+      }
+    }
+    
+    // Update permission overwrites for all channels for the Muted role
+    message.guild.channels.cache.forEach(async (channel) => {
+      try {
+        await channel.permissionOverwrites.edit(muteRole, {
+          SEND_MESSAGES: false,
+          ADD_REACTIONS: false,
+          SPEAK: false,
+          VIEW_CHANNEL: true,
+          CREATE_INSTANT_INVITE: true,
+          READ_MESSAGE_HISTORY: true
+        });
+      } catch (error) {
+        console.error(`Error updating permissions for channel ${channel.id}:`, error);
+      }
+    });
+
+    // Add the mute role to the member
     memberToMute.roles.add(muteRole)
       .then(() => message.reply(`${memberToMute.user.tag} has been muted.`))
       .catch(err => {
