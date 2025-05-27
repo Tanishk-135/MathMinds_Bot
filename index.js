@@ -63,34 +63,35 @@ client.once('ready', () => {
 client.on("messageCreate", (message) => {
   if (message.author.bot) return;
   
-  // Convert incoming message to a trimmed, lowercased command
+  // Convert message to trimmed, lower-case string
   const command = message.content.trim().toLowerCase();
   console.log(`Received message: "${command}" from ${message.author.id}`);
-  
+
   // !hello Command
   if (command === "!hello") {
     console.log("Processing !hello command...");
     message.reply("Hey there! MathMinds Bot is online and ready to solve some math problems. 🚀");
   }
   
-  // !restart Command (using startsWith to catch any extra accidental characters)
-  if (command.startsWith("!restart")) {
-    console.log(`Restart command detected from ${message.author.tag} (ID: ${message.author.id}).`);
-    console.log(`Full command received: "${command}"`);
+  // !restart Command: first check if command contains "restart" anywhere
+  if (command.includes("restart")) {
+    console.log(`Restart keyword detected in message from ${message.author.tag} (ID: ${message.author.id}). Full command: "${command}"`);
     
-    if (message.author.id !== BOT_OWNER_ID) {
-      console.log(`User is not the bot owner. Expected: ${BOT_OWNER_ID}, received: ${message.author.id}`);
-      return message.reply(`🚫 Only the bot owner can restart me! Your ID: ${message.author.id}`);
+    // Now check for exact match (or prefix) to avoid accidental triggers
+    if (command.startsWith("!restart")) {
+      if (message.author.id !== BOT_OWNER_ID) {
+        console.log(`User not authorized: expected ${BOT_OWNER_ID} but received ${message.author.id}`);
+        return message.reply(`🚫 Only the bot owner can restart me! Your ID: ${message.author.id}`);
+      }
+      // Confirm reply then restart after a short delay
+      message.reply("Restarting bot now...").then(() => {
+        console.log("Bot is restarting now...");
+        setTimeout(() => {
+          console.log("Exiting process now...");
+          process.exit(1);
+        }, 500);
+      });
     }
-    
-    message.reply("Restarting bot now...").then(() => {
-      console.log("Bot is restarting now...");
-      // Use a short delay and then force kill the process.
-      setTimeout(() => {
-        console.log("Exiting process now using process.kill()");
-        process.kill(process.pid, 'SIGTERM');
-      }, 500);
-    });
   }
 });
 
