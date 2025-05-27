@@ -8,7 +8,7 @@ const https = require('https');
 const http = require('http');
 require('dotenv').config();
 
-const BOT_OWNER_ID = "922909884121505792"; // Replace with your Discord ID
+const BOT_OWNER_ID = "922909884121505792"; // Your Discord ID
 
 // Define PORT before using it
 const PORT = process.env.PORT || 3000;
@@ -61,18 +61,28 @@ client.once('ready', () => {
 
 // Command Handler
 client.on("messageCreate", (message) => {
-  console.log(`Received message: "${message.content}" from ${message.author.id}`);
   if (message.author.bot) return;
-
+  
+  // Debugging: Log all received messages
+  console.log(`Received message: "${message.content}" from ${message.author.id}`);
+  
+  // !hello Command
   if (message.content.toLowerCase() === "!hello") {
     message.reply("Hey there! MathMinds Bot is online and ready to solve some math problems. 🚀");
   }
   
-// Restart
+  // !restart Command (with enhanced logging)
   if (message.content.toLowerCase() === "!restart") {
-      console.log("Restart command detected!");
-      message.reply("Restarting bot now...");
+    console.log(`Restart command detected from ${message.author.tag} (ID: ${message.author.id})`);
+
+    if (message.author.id !== BOT_OWNER_ID) {
+      return message.reply(`🚫 Only the bot owner can restart me! Your ID: ${message.author.id}`);
+    }
+
+    message.reply("Restarting bot now...").then(() => {
+      console.log("Bot is restarting now...");
       process.exit(1);
+    });
   }
 });
 
