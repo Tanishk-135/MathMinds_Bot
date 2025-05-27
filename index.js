@@ -13,6 +13,7 @@ const https = require('https');
 const http = require('http');
 const crypto = require('crypto');           // To verify webhook signature
 const { exec } = require('child_process');  // To run shell commands
+const axios = require('axios');             // For AI API integration
 require('dotenv').config();
 
 console.log("NEW CODE IMPLEMENTED at " + new Date().toISOString());
@@ -20,6 +21,7 @@ console.log("NEW CODE IMPLEMENTED at " + new Date().toISOString());
 const BOT_OWNER_ID = "922909884121505792"; // Your Discord ID
 const PORT = process.env.PORT || 3000;
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "your_default_secret_here"; // Set a proper secret in .env
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY; // Your OpenAI API key for AI-generated responses
 
 // New: Added for persistent daily summary storage
 const fs = require('fs'); 
@@ -46,10 +48,12 @@ const app = express();
 // Modified to capture raw body for proper webhook signature verification
 app.use(express.json({ 
   limit: '5mb',
-  verify: (req, res, buf, encoding) => { req.rawBody = buf; }
+  verify: (req, res, buf, encoding) => {
+    req.rawBody = buf;
+  }
 }));
 
-// New: Middleware to set a request timeout warning
+// New: Middleware to set a request timeout warning for long requests
 app.use((req, res, next) => {
   res.setTimeout(15000, () => { console.warn("Request taking too long!"); });
   next();
@@ -71,13 +75,12 @@ app.get("/status", (req, res) => {
 // -------------------------
 // GitHub Webhook Endpoint for Auto-Deploy
 // -------------------------
-
 // Middleware that verifies GitHub webhook signature
 function verifyGitHubSignature(req, res, next) {
   const sigHeaderName = 'x-hub-signature-256';
   const signature = req.get(sigHeaderName) || '';
   
-  // Compute HMAC digest using the webhook secret and the raw body (instead of JSON.stringify(req.body))
+  // Compute HMAC digest using the webhook secret and the rawBody (instead of JSON.stringify(req.body))
   const hmac = crypto.createHmac('sha256', WEBHOOK_SECRET);
   const digest = 'sha256=' + hmac.update(req.rawBody).digest('hex');
   
@@ -201,7 +204,7 @@ The MathMinds Team
     hour12: true
   }).format(now);
 
-  // Log the join event in the designated join-log channel
+  // Log the join event in the designated join-log channel (channel name must be "🔒│join-log")
   const joinLogChannel = member.guild.channels.cache.find(ch => ch.name === '🔒│join-log');
   if (joinLogChannel) {
     joinLogChannel.send(`**<@${member.id}>** joined on ${formattedTime}`);
@@ -252,7 +255,7 @@ cron.schedule('0 0 * * *', () => {
 // -------------------------
 // Command Handler
 // -------------------------
-client.on("messageCreate", (message) => {
+client.on("messageCreate", async (message) => {
   // Ignore messages from bots
   if (message.author.bot) return;
 
@@ -372,7 +375,169 @@ client.on("messageCreate", (message) => {
         message.reply("An error occurred while trying to ban that member.");
       });
   }
+
+  // -------------------------
+  // New: Help Command
+  // -------------------------
+  if (command === "!help") {
+    const helpMessage = `
+**MathMinds Bot Commands:**
+\`!hello\` - Greet the bot.
+\`!ping\` - Check the bot's latency.
+\`!mathfact\` - Get an interesting mathematical fact.
+\`!quote\` - Receive a famous mathematical quote.
+\`!mathpuzzle\` - Get a challenging math puzzle.
+\`!serverinfo\` - Display info about this server.
+\`!userinfo\` - Show your user information.
+\`!uptime\` - Check how long the bot has been running.
+\`!clear [number]\` - Delete a specified number of messages.
+\`!mute @user [time]\` - Temporarily mute a user (requires a mute role).
+\`!warn @user [reason]\` - Issue a warning to a user.
+(Plus existing moderation commands: \`!kick\`, \`!ban\`, \`!restart\`)
+    `;
+    message.reply(helpMessage);
+  }
+
+  // -------------------------
+  // New: Ping Command
+  // -------------------------
+  if (command === "!ping") {
+    const latency = Date.now() - message.createdTimestamp;
+    message.reply(`Pong! Latency is ${latency}ms.`);
+  }
+
+  // -------------------------
+  // New: AI-Powered Math Fact Command
+  // -------------------------
+  if (command === "!mathfact") {
+    const prompt = "Tell me an interesting mathematical fact.";
+    const fact = await getAIResponse(prompt);
+    message.reply(fact);
+  }
+
+  // -------------------------
+  // New: AI-Powered Quote Command
+  // -------------------------
+  if (command === "!quote") {
+    const prompt = "Give me a famous quote related to mathematics.";
+    const quote = await getAIResponse(prompt);
+    message.reply(quote);
+  }
+
+  // -------------------------
+  // New: AI-Powered Math Puzzle Command
+  // -------------------------
+  if (command === "!mathpuzzle") {
+    const prompt = "Give me a challenging but fun math puzzle.";
+    const puzzle = await getAIResponse(prompt);
+    message.reply(puzzle);
+  }
+
+  // -------------------------
+  // New: Server Info Command
+  // -------------------------
+  if (command === "!serverinfo") {
+    if (!message.guild) return message.reply("This command can only be used in a server.");
+    const { name, memberCount, createdAt } = message.guild;
+    message.reply(`Server Name: ${name}\nMembers: ${memberCount}\nCreated At: ${createdAt}`);
+  }
+
+  // -------------------------
+  // New: User Info Command
+  // -------------------------
+  if (command === "!userinfo") {
+    if (!message.guild) return message.reply("This command can only be used in a server.");
+    const member = message.member;
+    message.reply(`Your Username: ${member.user.tag}\nJoined: ${member.joinedAt}\nID: ${member.id}`);
+  }
+
+  // -------------------------
+  // New: Uptime Command
+  // -------------------------
+  if (command === "!uptime") {
+    const uptimeSeconds = process.uptime();
+    const hours = Math.floor(uptimeSeconds / 3600);
+    const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+    const seconds = Math.floor(uptimeSeconds % 60);
+    message.reply(`Uptime: ${hours}h ${minutes}m ${seconds}s`);
+  }
+
+  // -------------------------
+  // New: Clear Command
+  // -------------------------
+  if (command.startsWith("!clear")) {
+    if (!message.guild) return message.reply("This command can only be used in a server.");
+    const args = message.content.split(" ").slice(1);
+    const amount = parseInt(args[0]);
+    if (isNaN(amount) || amount < 1) return message.reply("Please specify a valid number of messages to delete.");
+    message.channel.bulkDelete(amount + 1) // +1 to delete the command itself
+      .then(() => message.channel.send(`Deleted ${amount} messages.`).then(msg => {
+        setTimeout(() => msg.delete(), 5000);
+      }))
+      .catch(console.error);
+  }
+
+  // -------------------------
+  // New: Mute Command
+  // -------------------------
+  if (command.startsWith("!mute")) {
+    if (!message.guild) return message.reply("This command can only be used in a server.");
+    if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
+      return message.reply("You don't have permission to mute members.");
+    }
+    const memberToMute = message.mentions.members.first();
+    if (!memberToMute) return message.reply("Please mention the member to mute.");
+    let muteRole = message.guild.roles.cache.find(r => r.name.toLowerCase() === "muted");
+    if (!muteRole) return message.reply("No 'Muted' role found. Please create one.");
+    memberToMute.roles.add(muteRole)
+      .then(() => message.reply(`${memberToMute.user.tag} has been muted.`))
+      .catch(err => {
+        console.error(err);
+        message.reply("Failed to mute the member.");
+      });
+  }
+
+  // -------------------------
+  // New: Warn Command
+  // -------------------------
+  if (command.startsWith("!warn")) {
+    if (!message.guild) return message.reply("This command can only be used in a server.");
+    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      return message.reply("You don't have permission to warn members.");
+    }
+    const memberToWarn = message.mentions.members.first();
+    if (!memberToWarn) return message.reply("Please mention the member to warn.");
+    const args = message.content.split(" ").slice(2).join(" ");
+    const warnReason = args || "No reason provided.";
+    message.reply(`${memberToWarn.user.tag} has been warned. Reason: ${warnReason}`);
+    console.log(`Warned ${memberToWarn.user.tag}: ${warnReason}`);
+  }
 });
 
-// Log in using the bot token from your .env file
+// -------------------------
+// AI Integration Function
+// -------------------------
+async function getAIResponse(prompt) {
+  try {
+    const response = await axios.post("https://api.openai.com/v1/chat/completions", {
+      model: "gpt-4",
+      messages: [
+        { role: "user", content: prompt }
+      ]
+    }, {
+      headers: { 
+        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+    return response.data.choices[0].message.content;
+  } catch (error) {
+    console.error("Error fetching AI response:", error);
+    return "Sorry, I couldn't fetch a response.";
+  }
+}
+
+// -------------------------
+// Bot Login
+// -------------------------
 client.login(process.env.DISCORD_BOT_TOKEN);
