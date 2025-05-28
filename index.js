@@ -1,7 +1,7 @@
 // Load environment variables from the .env file
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, MessageEmbed, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
@@ -205,7 +205,7 @@ client.on('messageCreate', async (message) => {
     if (command === 'serverinfo') {
       if (!message.guild)
         return message.reply("This command can only be used in a server.");
-      const embed = new MessageEmbed()
+      const embed = new EmbedBuilder()
         .setTitle("Server Info")
         .setThumbnail(message.guild.iconURL({ dynamic: true }))
         .addField("Server Name", message.guild.name, true)
@@ -218,7 +218,7 @@ client.on('messageCreate', async (message) => {
     // !userinfo Command - Displays your user information.
     // ===========================
     if (command === 'userinfo') {
-      const embed = new MessageEmbed()
+      const embed = new EmbedBuilder()
         .setTitle("User Info")
         .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
         .addField("Username", message.author.username, true)
