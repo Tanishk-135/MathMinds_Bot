@@ -5,12 +5,13 @@ const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits } = require
 const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
+const { Configuration, OpenAIApi } = require('openai');
 
 // Static cache
 const FACTS = [
   "Zero was invented by Indian mathematicians.",
   "A circle has infinite lines of symmetry.",
-  "Euler's identity: e^(iπ) + 1 = 0."
+  "Euler's identity: e^(i\u03c0) + 1 = 0."
 ];
 const QUOTES = [
   "Mathematics is the language… - Galileo",
@@ -25,8 +26,14 @@ const PUZZLES = [
 
 // Config/constants
 const TOKEN = process.env.BOT_TOKEN;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const STARTUP_IGNORE = 1000;  // ms
 const RESTART_DELAY = 1000;   // ms
+
+// OpenAI setup
+const openai = new OpenAIApi(new Configuration({
+  apiKey: OPENAI_API_KEY
+}));
 
 // Client setup
 const client = new Client({
@@ -66,6 +73,7 @@ const handlers = {
       "• Utility: ping, hello, uptime\n" +
       "• Fun: mathfact, quote, mathpuzzle\n" +
       "• Info: serverinfo, userinfo\n" +
+      "• AI: Tag the bot with a question (e.g. @MathMindsBot what is pi?)\n" +
       (isOwner ? "• Mod: clear, mute, warn, kick, ban" : '')
     );
   },
@@ -104,7 +112,7 @@ const handlers = {
     msg.reply(`🧮 **Did you know?**\n${FACTS[Math.floor(Math.random() * FACTS.length)]}`),
 
   quote: msg =>
-    msg.reply(`📜 **Thought of the day:**\n"${QUOTES[Math.floor(Math.random() * QUOTES.length)]}"`),
+    msg.reply(`📜 **Thought of the day:**\n\"${QUOTES[Math.floor(Math.random() * QUOTES.length)]}\"`),
 
   mathpuzzle: msg =>
     msg.reply(`🧩 **Try this puzzle:**\n${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
@@ -201,15 +209,36 @@ const handlers = {
 client.on('messageCreate', async msg => {
   if (msg.author.bot) return;
   if (Date.now() - (readyAt || 0) < STARTUP_IGNORE) return;
-  if (!msg.content.startsWith('!')) return;
 
-  const [cmd, ...args] = msg.content.slice(1).trim().split(/ +/);
-  const h = handlers[cmd.toLowerCase()];
-  try {
-    if (h) return h(msg, args);
-    return msg.reply("❓ Unknown command. See !help.");
-  } catch {
-    return msg.reply("❌ An error occurred.");
+  // Command-based
+  if (msg.content.startsWith('!')) {
+    const [cmd, ...args] = msg.content.slice(1).trim().split(/ +/);
+    const h = handlers[cmd.toLowerCase()];
+    try {
+      if (h) return h(msg, args);
+      return msg.reply("❓ Unknown command. See !help.");
+    } catch {
+      return msg.reply("❌ An error occurred.");
+    }
+  }
+
+  // Mention-based (AI chat)
+  if (msg.mentions.has(client.user)) {
+    const prompt = msg.content.replace(/<@!?\d+>/, '').trim();
+    if (!prompt) return;
+    try {
+      const res = await openai.createChatCompletion({
+        model: 'gpt-4',
+        messages: [
+          { role: 'system', content: 'You are a helpful assistant for a math Discord bot.' },
+          { role: 'user', content: prompt }
+        ]
+      });
+      return msg.reply(res.data.choices[0].message.content);
+    } catch (e) {
+      console.error(e);
+      return msg.reply('❌ Failed to get response from OpenAI.');
+    }
   }
 });
 
