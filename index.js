@@ -24,12 +24,23 @@ const client = new Client({
   ]
 });
 
-function delayedRestart(message, successText) {
-  message.reply(successText).then(() => {
-    setTimeout(() => {
-      process.exit(0);
-    }, 5000);  // 5-second delay before exiting
-  }).catch(err => console.error("Error sending restart confirmation:", err));
+// Global variable to record when the bot starts
+let startupTime = Date.now();
+
+client.once('ready', () => {
+  startupTime = Date.now();
+  console.log(`Logged in as ${client.user.tag}!`);
+});
+
+// Utility function to send a confirmation message and exit after a specified delay.
+function delayedRestart(message, successText, delay = 5000) {
+  message.reply(successText)
+    .then(() => {
+      setTimeout(() => {
+        process.exit(0);
+      }, delay); // Wait for "delay" milliseconds before exiting.
+    })
+    .catch(err => console.error("Error sending restart confirmation:", err));
 }
 
 // Define the command prefix
@@ -52,6 +63,8 @@ client.once('ready', () => {
 // Main command handler
 // IMPORTANT: The callback here is declared as "async" to allow the use of await.
 client.on('messageCreate', async (message) => {
+  // Ignore any commands during the initial 5 seconds after startup.
+  if (Date.now() - startupTime < 5000) return;
   // Ignore messages if the bot isn't fully ready.
   if (!isReady) return;
   // Log incoming messages (for debugging)
@@ -72,16 +85,15 @@ client.on('messageCreate', async (message) => {
       if (message.author.id !== message.guild.ownerId) {
         return message.reply("❌ You don't have permission to hard reset the bot.");
       }
-      // Inform the user that the reset has started.
       await message.reply("🔄 Hard reset in progress, please wait...");
-      
+    
       try {
-        // Perform the 'git pull' to update your code.
+        // First, perform the 'git pull' to update your code.
         const { stdout, stderr } = await execPromise("git pull");
         if (stderr) {
           await message.reply(`⚠️ Warning during git pull:\n\`\`\`${stderr}\`\`\``);
         }
-        // Use the delayedRestart function to send confirmation & then exit.
+        // Then use the delayedRestart function to send the confirmation message and exit.
         delayedRestart(message, `✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``);
       } catch (err) {
         console.error("Error during !hardreset:", err);
@@ -97,9 +109,9 @@ client.on('messageCreate', async (message) => {
         return message.reply("❌ You don't have permission to restart the bot.");
       }
       await message.reply("🔄 Restarting the bot, please wait...");
-      
+    
       try {
-        // Use the delayedRestart function to send confirmation and then exit.
+        // Instead of calling process.exit immediately, use the delayedRestart function.
         delayedRestart(message, "✅ Restart completed!");
       } catch (err) {
         console.error("Error during !restart:", err);
