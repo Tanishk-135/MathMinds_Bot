@@ -2,7 +2,8 @@
 require('dotenv').config();
 
 const { Client, GatewayIntentBits } = require('discord.js');
-const OpenAI = require('openai');
+// Removed the OpenAI require, as we're using Hugging Face now.
+// const OpenAI = require('openai');
 const util = require('util');
 const { exec } = require('child_process');
 const execPromise = util.promisify(exec);
@@ -39,9 +40,10 @@ const client = new Client({
 });
 let readyAt;
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+// Removed OpenAI instantiation; using Hugging Face now.
+// const openai = new OpenAI({
+//   apiKey: process.env.OPENAI_API_KEY
+// });
 
 client.once('ready', () => {
   readyAt = Date.now();
@@ -67,19 +69,34 @@ function delayedRestart(msg, successText, delay = 5000) {
     .catch(err => console.error("Error sending restart confirmation:", err));
 }
 
+// Replace OpenAI-based prompt handling with Hugging Face inference.
+// This example uses the DialoGPT model.
 const handlePrompt = async msg => {
   const prompt = msg.content.replace(/^<@!?\d+>/, '').trim();
   if (!prompt) return;
   try {
-    const res = await openai.chat.completions.create({
-      messages: [{ role: "user", content: prompt }],
-      model: "gpt-3.5-turbo" // Fixed model access issue
+    const model_id = "microsoft/DialoGPT-medium";
+    // Uses global fetch (available in Node 18+). If yours doesn't support it, install node-fetch.
+    const hfApiKey = process.env.HF_API_KEY; // Optional: set your Hugging Face API key here.
+    const response = await fetch(`https://api-inference.huggingface.co/models/${model_id}`, {
+      method: "POST",
+      headers: {
+         "Content-Type": "application/json",
+         ...(hfApiKey ? { Authorization: `Bearer ${hfApiKey}` } : {})
+      },
+      body: JSON.stringify({ inputs: prompt })
     });
-    const reply = res.choices?.[0]?.message?.content;
+    if (!response.ok) {
+      console.error(`Hugging Face API error: ${response.statusText}`);
+      return msg.reply("❌ Error fetching response.");
+    }
+    const result = await response.json();
+    // DialoGPT typically returns an array of objects with a "generated_text" field.
+    const reply = result && Array.isArray(result) && result[0]?.generated_text;
     if (!reply) return msg.reply("❌ I couldn't think of a reply.");
     return msg.reply(reply);
   } catch (e) {
-    console.error("OpenAI error:", e);
+    console.error("Hugging Face API error:", e);
     return msg.reply("❌ Error fetching response.");
   }
 };
