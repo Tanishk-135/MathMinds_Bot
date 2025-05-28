@@ -10,7 +10,7 @@ const execPromise = util.promisify(exec);
 const FACTS = [
   "Zero was invented by Indian mathematicians.",
   "A circle has infinite lines of symmetry.",
-  "Euler's identity: e^(iπ) + 1 = 0."
+  "Euler's identity: e^(i\u03c0) + 1 = 0."
 ];
 const QUOTES = [
   "Mathematics is the language… - Galileo",
@@ -69,21 +69,24 @@ const handlers = {
       const { stdout, stderr } = await execPromise('git pull');
 
       // Parse summary info
-      const summaryLine = stdout
+      const summaryLines = stdout
         .split('\n')
-        .find(line => line.includes('insertion') || line.includes('file changed'));
-      const summary = summaryLine ? `\n📄 ${summaryLine.trim()}` : '';
+        .filter(line => line.trim() !== '');
+
+      const formattedOutput = summaryLines.length
+        ? `\n\u0001f4c4 Git Output:\n\u0060\u0060\u0060\n${summaryLines.join('\n')}\n\u0060\u0060\u0060`
+        : '';
 
       // DM only real warnings/errors
       if (stderr.trim()) {
-        await msg.author.send(`⚠️ Warning during git pull:\n\`\`\`\n${stderr.trim()}\n\`\`\``);
+        await msg.author.send(`⚠️ Warning during git pull:\n\u0060\u0060\u0060\n${stderr.trim()}\n\u0060\u0060\u0060`);
       }
 
       // Public success with change summary
-      await msg.reply(`✅ Hard reset complete!${summary}`);
+      await msg.reply(`✅ Hard reset complete!${formattedOutput}`);
       delayExit();
     } catch (e) {
-      await msg.author.send(`❌ Hard reset error:\n\`\`\`\n${e.message}\n\`\`\``);
+      await msg.author.send(`❌ Hard reset error:\n\u0060\u0060\u0060\n${e.message}\n\u0060\u0060\u0060`);
       await msg.reply("❌ Hard reset failed.");
     }
   },
