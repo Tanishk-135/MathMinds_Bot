@@ -59,11 +59,11 @@ client.on('messageCreate', async (message) => {
       if (message.author.id !== message.guild.ownerId) {
         return message.reply("❌ You don't have permission to hard reset the bot.");
       }
-      await message.reply("🔄 Hard reset in progress...");
+      await message.reply("🔄 Hard reset in progress, please wait...");
       try {
         const { stdout, stderr } = await execPromise("git pull && pm2 restart mathminds-bot");
         if (stderr) await message.reply(`⚠️ Warning:\n\`\`\`${stderr}\`\`\``);
-        return message.reply(`✅ Hard reset complete!\n\`\`\`${stdout}\`\`\``);
+        return message.reply(`✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``);
       } catch (err) {
         console.error("Error during !hardreset:", err);
         return message.reply(`❌ Error during hard reset: \`${err.message}\``);
@@ -77,11 +77,11 @@ client.on('messageCreate', async (message) => {
       if (message.author.id !== message.guild.ownerId) {
         return message.reply("❌ You don't have permission to restart the bot.");
       }
-      await message.reply("🔄 Restarting the bot...");
+      await message.reply("🔄 Restarting the bot, please wait...");
       try {
         const { stdout, stderr } = await execPromise("pm2 restart mathminds-bot");
         if (stderr) await message.reply(`⚠️ Warning:\n\`\`\`${stderr}\`\`\``);
-        return message.reply(`✅ Bot restarted!\n\`\`\`${stdout}\`\`\``);
+        return message.reply(`✅ Restart completed!\n\`\`\`${stdout}\`\`\``);
       } catch (err) {
         console.error("Error during !restart:", err);
         return message.reply(`❌ Error during restart: \`${err.message}\``);
@@ -277,11 +277,24 @@ client.on('messageCreate', async (message) => {
 
     if (command === 'help') {
       return message.reply(
-        "**📜 Available Commands:**\n\n" +
-        "**Utility:** `!ping`, `!hello`, `!uptime`\n" +
-        "**Math & Fun:** `!mathfact`, `!quote`, `!mathpuzzle`\n" +
-        "**Info:** `!serverinfo`, `!userinfo`\n" +
-        "**Moderation:** `!clear`, `!mute`, `!warn`, `!kick`, `!ban`"
+        "**Available Commands:**\n\n" +
+        "**Utility:**\n" +
+        " - !ping\n" +
+        " - !hello\n" +
+        " - !uptime\n\n" +
+        "**Math & Fun:**\n" +
+        " - !mathfact\n" +
+        " - !quote\n" +
+        " - !mathpuzzle\n\n" +
+        "**Info:**\n" +
+        " - !serverinfo\n" +
+        " - !userinfo\n\n" +
+        "**Moderation:**\n" +
+        " - !clear\n" +
+        " - !mute\n" +
+        " - !warn\n" +
+        " - !kick\n" +
+        " - !ban"
       );
     }
     
