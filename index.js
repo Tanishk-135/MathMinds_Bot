@@ -59,11 +59,22 @@ client.on('messageCreate', async (message) => {
       if (message.author.id !== message.guild.ownerId) {
         return message.reply("❌ You don't have permission to hard reset the bot.");
       }
+      // Inform the user that the command has started.
       await message.reply("🔄 Hard reset in progress, please wait...");
+    
       try {
-        const { stdout, stderr } = await execPromise("git pull && pm2 restart mathminds-bot");
-        if (stderr) await message.reply(`⚠️ Warning:\n\`\`\`${stderr}\`\`\``);
-        return message.reply(`✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``);
+        // First, perform the 'git pull' to update your code.
+        const { stdout, stderr } = await execPromise("git pull");
+        if (stderr) {
+          await message.reply(`⚠️ Warning during git pull:\n\`\`\`${stderr}\`\`\``);
+        }
+        // Send a confirmation message using the output of the git pull.
+        await message.reply(`✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``);
+        
+        // Wait 2 seconds before exiting so the message gets sent.
+        setTimeout(() => {
+          process.exit(0); // PM2 will restart the process.
+        }, 2000);
       } catch (err) {
         console.error("Error during !hardreset:", err);
         return message.reply(`❌ Error during hard reset: \`${err.message}\``);
