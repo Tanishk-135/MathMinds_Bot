@@ -1,13 +1,13 @@
 // Load environment variables from the .env file
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits } = require('discord.js');
 const OpenAI = require('openai');
-const { exec } = require('child_process');
 const util = require('util');
+const { exec } = require('child_process');
 const execPromise = util.promisify(exec);
 
-// Static cache
+// Static data caching
 const FACTS = [
   "Zero was invented by Indian mathematicians.",
   "A circle has infinite lines of symmetry.",
@@ -27,7 +27,6 @@ const PUZZLES = [
 // Config/constants
 const TOKEN = process.env.BOT_TOKEN;
 const STARTUP_IGNORE = 1000;  // ms
-const RESTART_DELAY = 1000;   // ms
 
 // Client setup
 const client = new Client({
@@ -49,11 +48,6 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-const delayExit = () => setTimeout(() => process.exit(0), RESTART_DELAY);
-const parseMinutes = str => {
-  const m = parseInt(str);
-  return isNaN(m) ? null : m * 60 * 1000;
-};
 const formatUptime = ms => {
   const m = Math.floor(ms / 60000) % 60;
   const h = Math.floor(ms / 3600000) % 24;
@@ -61,13 +55,25 @@ const formatUptime = ms => {
   return `${d}d ${h}h ${m}m`;
 };
 
+// Utility function to send a confirmation message and then exit after a delay.
+// Used in the !restart and !hardreset commands.
+function delayedRestart(msg, successText, delay = 5000) {
+  msg.reply(successText)
+    .then(() => {
+      setTimeout(() => {
+        process.exit(0);
+      }, delay);
+    })
+    .catch(err => console.error("Error sending restart confirmation:", err));
+}
+
 const handlePrompt = async msg => {
   const prompt = msg.content.replace(/^<@!?\d+>/, '').trim();
   if (!prompt) return;
   try {
     const res = await openai.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
-      model: "gpt-3.5-turbo"
+      model: "gpt-3.5-turbo" // Fixed model access issue
     });
     const reply = res.choices?.[0]?.message?.content;
     if (!reply) return msg.reply("❌ I couldn't think of a reply.");
@@ -87,7 +93,8 @@ const handlers = {
       "• Fun: mathfact, quote, mathpuzzle\n" +
       "• Info: serverinfo, userinfo\n" +
       "• AI: Mention the bot and ask anything!\n" +
-      (isOwner ? "• Mod: clear, mute, warn, kick, ban" : '')
+      (isOwner ? "• Mod: clear, mute, warn, kick, ban\n" : "") +
+      (isOwner ? "• Admin: restart, hardreset" : "")
     );
   },
 
@@ -99,20 +106,49 @@ const handlers = {
     msg.reply(`🧮 **Did you know?**\n${FACTS[Math.floor(Math.random() * FACTS.length)]}`),
 
   quote: msg =>
-    msg.reply(`📜 **Thought of the day:**\n\"${QUOTES[Math.floor(Math.random() * QUOTES.length)]}\"`),
+    msg.reply(`📜 **Thought of the day:**\n"${QUOTES[Math.floor(Math.random() * QUOTES.length)]}"`),
 
   mathpuzzle: msg =>
-    msg.reply(`🧩 **Try this puzzle:**\n${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`)
+    msg.reply(`🧩 **Try this puzzle:**\n${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
+
+  // New restart command – only available to the server owner.
+  restart: async msg => {
+    if (msg.guild && msg.author.id !== msg.guild.ownerId) {
+      return msg.reply("❌ You don't have permission to restart the bot.");
+    }
+    await msg.reply("🔄 Restarting the bot, please wait...");
+    delayedRestart(msg, "✅ Restart completed!");
+  },
+
+  // New hardreset command – performs a git pull then restarts (admin only).
+  hardreset: async msg => {
+    if (msg.guild && msg.author.id !== msg.guild.ownerId) {
+      return msg.reply("❌ You don't have permission to hard reset the bot.");
+    }
+    await msg.reply("🔄 Hard reset in progress, please wait...");
+    try {
+      // Perform a 'git pull' to update your code.
+      const { stdout, stderr } = await execPromise("git pull");
+      if (stderr) {
+        await msg.reply(`⚠️ Warning during git pull:\n\`\`\`${stderr}\`\`\``);
+      }
+      delayedRestart(msg, `✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``);
+    } catch (e) {
+      console.error("Error during hardreset:", e);
+      return msg.reply(`❌ Error during hard reset: \`${e.message}\``);
+    }
+  }
 };
 
 client.on('messageCreate', async msg => {
+  // Early exits: ignore bot messages and commands during the startup ignore window.
   if (msg.author.bot) return;
   if (Date.now() - (readyAt || 0) < STARTUP_IGNORE) return;
 
+  // If the message mentions the bot and does not start with '!', treat it as an AI prompt.
   if (msg.mentions.has(client.user) && !msg.content.startsWith('!')) {
     return handlePrompt(msg);
   }
-
   if (!msg.content.startsWith('!')) return;
 
   const [cmd, ...args] = msg.content.slice(1).trim().split(/ +/);
