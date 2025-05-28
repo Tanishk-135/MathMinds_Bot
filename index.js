@@ -10,7 +10,8 @@ const execPromise = util.promisify(exec);
 const FACTS = [
   "Zero was invented by Indian mathematicians.",
   "A circle has infinite lines of symmetry.",
-  "Euler's identity: e^(iπ) + 1 = 0."];
+  "Euler's identity: e^(iπ) + 1 = 0."
+];
 const QUOTES = [
   "Mathematics is the language… - Galileo",
   "Pure mathematics is…the poetry of logical ideas. - Einstein",
@@ -45,7 +46,10 @@ client.once('ready', () => {
 
 // Helpers
 const delayExit = () => setTimeout(() => process.exit(0), RESTART_DELAY);
-const parseMinutes = str => { const m = parseInt(str); return isNaN(m)?null:m*60*1000; };
+const parseMinutes = str => {
+  const m = parseInt(str);
+  return isNaN(m) ? null : m * 60 * 1000;
+};
 
 // Handlers
 const handlers = {
@@ -63,14 +67,24 @@ const handlers = {
     await msg.reply("🔄 Hard reset in progress, please wait...");
     try {
       const { stdout, stderr } = await execPromise('git pull');
+
+      // Parse summary info
+      const summaryLine = stdout
+        .split('\n')
+        .find(line => line.includes('insertion') || line.includes('file changed'));
+      const summary = summaryLine ? `\n📄 ${summaryLine.trim()}` : '';
+
+      // DM only real warnings/errors
       if (stderr.trim()) {
-        await msg.author.send(`⚠️ Warning during git pull:\n${stderr.trim()}`);
+        await msg.author.send(`⚠️ Warning during git pull:\n\`\`\`\n${stderr.trim()}\n\`\`\``);
       }
-      await msg.reply("✅ Hard reset complete!");
+
+      // Public success with change summary
+      await msg.reply(`✅ Hard reset complete!${summary}`);
       delayExit();
     } catch (e) {
-      await msg.author.send(`❌ Hard reset error:\n${e.message}`);
-      await msg.reply("❌ Hard reset failed. See DM.");
+      await msg.author.send(`❌ Hard reset error:\n\`\`\`\n${e.message}\n\`\`\``);
+      await msg.reply("❌ Hard reset failed.");
     }
   },
 
@@ -83,14 +97,19 @@ const handlers = {
 
   hello: msg => msg.reply("Hello!"),
   ping: msg => msg.reply(`Pong! ${Date.now() - msg.createdTimestamp}ms`),
-  uptime: msg => msg.reply(`Uptime: ${Math.floor((Date.now()-readyAt)/60000)}m`),
+  uptime: msg => msg.reply(`Uptime: ${Math.floor((Date.now() - readyAt) / 60000)}m`),
 
-  mathfact: msg => msg.reply(`🧮 **Fact:** ${FACTS[Math.floor(Math.random()*FACTS.length)]}`),
-  quote: msg => msg.reply(`📜 **Quote:** ${QUOTES[Math.floor(Math.random()*QUOTES.length)]}`),
-  mathpuzzle: msg => msg.reply(`🧩 **Puzzle:** ${PUZZLES[Math.floor(Math.random()*PUZZLES.length)]}`),
+  mathfact: msg =>
+    msg.reply(`🧮 **Did you know?**\n${FACTS[Math.floor(Math.random() * FACTS.length)]}`),
+
+  quote: msg =>
+    msg.reply(`📜 **Thought of the day:**\n"${QUOTES[Math.floor(Math.random() * QUOTES.length)]}"`),
+
+  mathpuzzle: msg =>
+    msg.reply(`🧩 **Try this puzzle:**\n${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
 
   serverinfo: msg => {
-    if (!msg.guild) return msg.reply('Server only.');
+    if (!msg.guild) return msg.reply('❌ Server only.');
     const e = new EmbedBuilder()
       .setTitle('Server Info')
       .addFields(
@@ -116,7 +135,7 @@ const handlers = {
     const n = parseInt(args[0]);
     if (!n || n < 1) return msg.reply('Provide a valid number.');
     await msg.channel.bulkDelete(n, true);
-    return msg.reply(`Deleted ${n} messages.`);
+    return msg.reply(`🗑️ Deleted ${n} messages.`);
   },
 
   mute: async (msg, args) => {
@@ -124,15 +143,15 @@ const handlers = {
       return msg.reply("❌ No permission.");
     const member = msg.mentions.members.first();
     const t = parseMinutes(args[1]);
-    if (!member||!t) return msg.reply('Mention user and minutes.');
-    const role = msg.guild.roles.cache.find(r=>r.name==='Muted');
+    if (!member || !t) return msg.reply('Mention user and minutes.');
+    const role = msg.guild.roles.cache.find(r => r.name === 'Muted');
     if (!role) return msg.reply("Create a 'Muted' role first.");
     await member.roles.add(role);
-    msg.reply(`${member.user.tag} muted for ${args[1]}m.`);
-    setTimeout(async ()=>{
-      if(member.roles.cache.has(role.id)){
+    msg.reply(`🔇 ${member.user.tag} muted for ${args[1]}m.`);
+    setTimeout(async () => {
+      if (member.roles.cache.has(role.id)) {
         await member.roles.remove(role);
-        msg.channel.send(`${member.user.tag} unmuted.`);
+        msg.channel.send(`🔊 ${member.user.tag} unmuted.`);
       }
     }, t);
   },
@@ -142,7 +161,7 @@ const handlers = {
       return msg.reply("❌ No permission.");
     const member = msg.mentions.members.first();
     const reason = args.slice(1).join(' ');
-    if (!member||!reason) return msg.reply('Mention user and reason.');
+    if (!member || !reason) return msg.reply('Mention user and reason.');
     return msg.reply(`⚠️ ${member.user.tag} warned: ${reason}`);
   },
 
@@ -150,35 +169,44 @@ const handlers = {
     if (!msg.member.permissions.has(PermissionFlagsBits.KickMembers))
       return msg.reply("❌ No permission.");
     const member = msg.mentions.members.first();
-    const reason = args.slice(1).join(' ')||'No reason';
+    const reason = args.slice(1).join(' ') || 'No reason';
     if (!member) return msg.reply('Mention a member.');
-    try { await member.kick(reason); return msg.reply(`Kicked ${member.user.tag}.`); }
-    catch(e){ return msg.reply(`Failed to kick.`); }
+    try {
+      await member.kick(reason);
+      return msg.reply(`👢 Kicked ${member.user.tag}.`);
+    } catch {
+      return msg.reply('❌ Failed to kick.');
+    }
   },
 
   ban: async (msg, args) => {
     if (!msg.member.permissions.has(PermissionFlagsBits.BanMembers))
       return msg.reply("❌ No permission.");
     const member = msg.mentions.members.first();
-    const reason = args.slice(1).join(' ')||'No reason';
+    const reason = args.slice(1).join(' ') || 'No reason';
     if (!member) return msg.reply('Mention a member.');
-    try { await member.ban({reason}); return msg.reply(`Banned ${member.user.tag}.`); }
-    catch(e){ return msg.reply(`Failed to ban.`); }
+    try {
+      await member.ban({ reason });
+      return msg.reply(`🔨 Banned ${member.user.tag}.`);
+    } catch {
+      return msg.reply('❌ Failed to ban.');
+    }
   }
 };
 
 // Message listener
 client.on('messageCreate', async msg => {
   if (msg.author.bot) return;
-  if (Date.now() - (readyAt||0) < STARTUP_IGNORE) return;
+  if (Date.now() - (readyAt || 0) < STARTUP_IGNORE) return;
   if (!msg.content.startsWith('!')) return;
+
   const [cmd, ...args] = msg.content.slice(1).trim().split(/ +/);
   const h = handlers[cmd.toLowerCase()];
   try {
     if (h) return h(msg, args);
-    return msg.reply("Unknown command. See !help.");
+    return msg.reply("❓ Unknown command. See !help.");
   } catch {
-    return msg.reply("Error occurred.");
+    return msg.reply("❌ An error occurred.");
   }
 });
 
