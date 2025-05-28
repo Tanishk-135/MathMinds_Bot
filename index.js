@@ -66,12 +66,13 @@ function delayedRestart(msg, successText, delay = 5000) {
     .catch(err => console.error("Error sending restart confirmation:", err));
 }
 
-// Updated handlePrompt: now wraps the math prompt into an instruct-format object
+// UPDATED handlePrompt: now passes the math prompt as a plain string.
+// This instructs the model to answer math queries concisely in one line.
 const handlePrompt = async msg => {
   const prompt = msg.content.replace(/^<@!?\d+>/, '').trim();
   if (!prompt) return;
   try {
-    // Prepend an instruction for a math bot that responds concisely in one line.
+    // Prepend an instruction for a math bot response.
     const mathPrompt = "Answer the following math query concisely in one line as a math bot: " + prompt;
     const model_id = "mistralai/Mistral-7B-Instruct-v0.3";
     const hfApiKey = process.env.HF_API_KEY; // Optional: set your Hugging Face API key here.
@@ -81,12 +82,9 @@ const handlePrompt = async msg => {
          "Content-Type": "application/json",
          ...(hfApiKey ? { Authorization: `Bearer ${hfApiKey}` } : {})
       },
-      // Pass the input as an object with "instruction" and an empty "input"
+      // Pass the math prompt as a plain string.
       body: JSON.stringify({
-        inputs: { 
-          instruction: mathPrompt, 
-          input: "" 
-        },
+        inputs: mathPrompt,
         parameters: {
           max_new_tokens: 30,    // Limit to a short answer
           temperature: 0.0,      // Deterministic reply
