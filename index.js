@@ -1,4 +1,3 @@
-```javascript
 // Load environment variables from the .env file
 require('dotenv').config();
 
@@ -112,22 +111,15 @@ const handlers = {
       "• Fun: mathfact, quote, mathpuzzle\n" +
       "• Info: serverinfo, userinfo\n" +
       "• AI: Mention the bot and ask anything!\n";
-    const mod = isOwner
-      ? "• Mod: clear, mute, warn, kick, ban\n"
-      : '';
-    const admin = isOwner
-      ? "• Admin: restart, hardreset"
-      : '';
+    const mod = isOwner ? "• Mod: clear, mute, warn, kick, ban\n" : '';
+    const admin = isOwner ? "• Admin: restart, hardreset" : '';
 
     return msg.reply(base + mod + admin);
   },
 
   hello: msg => msg.reply('Hello!'),
-
   ping: msg => msg.reply(`Pong! ${Date.now() - msg.createdTimestamp}ms`),
-
-  uptime: msg =>
-    msg.reply(`Uptime: ${formatUptime(Date.now() - readyAt)}`),
+  uptime: msg => msg.reply(`Uptime: ${formatUptime(Date.now() - readyAt)}`),
 
   mathfact: msg =>
     msg.reply(`🧮 **Did you know?**\n${
@@ -146,67 +138,43 @@ const handlers = {
 
   clear: async (msg, args) => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages))
-      return msg.reply(
-        "❌ You don't have permission to clear messages."
-      );
+      return msg.reply("❌ You don't have permission to clear messages.");
 
     const amount = parseInt(args[0]);
     if (isNaN(amount) || amount <= 0)
-      return msg.reply(
-        "Please provide a valid number of messages to delete."
-      );
+      return msg.reply("Please provide a valid number of messages to delete.");
 
     try {
       await msg.channel.bulkDelete(amount, true);
       return msg.reply(`🗑️ Deleted ${amount} messages.`);
     } catch (e) {
       console.error('Error clearing messages:', e);
-      return msg.reply(
-        "❌ An error occurred while trying to delete messages."
-      );
+      return msg.reply("❌ An error occurred while trying to delete messages.");
     }
   },
 
   restart: async msg => {
     if (msg.guild && msg.author.id !== msg.guild.ownerId)
-      return msg.reply(
-        "❌ You don't have permission to restart the bot."
-      );
+      return msg.reply("❌ You don't have permission to restart the bot.");
 
-    await msg.reply(
-      "🔄 Restarting the bot, please wait..."
-    );
+    await msg.reply("🔄 Restarting the bot, please wait...");
     delayedRestart(msg, '✅ Restart completed!');
   },
 
   hardreset: async msg => {
     if (msg.guild && msg.author.id !== msg.guild.ownerId)
-      return msg.reply(
-        "❌ You don't have permission to hard reset the bot."
-      );
+      return msg.reply("❌ You don't have permission to hard reset the bot.");
 
-    await msg.reply(
-      "🔄 Hard reset in progress, please wait..."
-    );
+    await msg.reply("🔄 Hard reset in progress, please wait...");
 
     try {
-      const { stdout, stderr } = await execPromise(
-        'git pull'
-      );
-      if (stderr)
-        await msg.reply(
-          `⚠️ Warning during git pull:\n\`\`\`${stderr}\`\`\``
-        );
+      const { stdout, stderr } = await execPromise('git pull');
+      if (stderr) await msg.reply(`⚠️ Warning during git pull: ${stderr}`);
 
-      delayedRestart(
-        msg,
-        `✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``
-      );
+      delayedRestart(msg, `✅ Hard reset completed! ${stdout}`);
     } catch (e) {
       console.error('Error during hardreset:', e);
-      return msg.reply(
-        `❌ Error during hard reset: \`${e.message}\``
-      );
+      return msg.reply(`❌ Error during hard reset: ${e.message}`);
     }
   }
 };
@@ -216,18 +184,14 @@ client.on('messageCreate', async msg => {
   if (Date.now() - (readyAt || 0) < STARTUP_IGNORE) return;
 
   // AI: mention-based prompt
-  if (
-    msg.mentions.has(client.user) &&
-    !msg.content.startsWith('!')
-  ) {
+  if (msg.mentions.has(client.user) && !msg.content.startsWith('!')) {
     return handlePrompt(msg);
   }
 
   // Command prefix
   if (!msg.content.startsWith('!')) return;
 
-  const [cmd, ...args] =
-    msg.content.slice(1).trim().split(/ +/);
+  const [cmd, ...args] = msg.content.slice(1).trim().split(/ +/);
   const h = handlers[cmd.toLowerCase()];
 
   try {
