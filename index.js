@@ -1,7 +1,7 @@
 // Load environment variables from the .env file
 require('dotenv').config();
 
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js'); // Added PermissionFlagsBits
 // Removed the OpenAI require, as we're using Hugging Face now.
 // const OpenAI = require('openai');
 const util = require('util');
@@ -41,9 +41,6 @@ const client = new Client({
 let readyAt;
 
 // Removed OpenAI instantiation; using Hugging Face now.
-// const openai = new OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY
-// });
 
 client.once('ready', () => {
   readyAt = Date.now();
@@ -70,11 +67,13 @@ function delayedRestart(msg, successText, delay = 5000) {
 }
 
 // Replace OpenAI-based prompt handling with Hugging Face inference.
-// This example uses the DialoGPT model.
+// This version instructs the model to answer math queries concisely in one line.
 const handlePrompt = async msg => {
   const prompt = msg.content.replace(/^<@!?\d+>/, '').trim();
   if (!prompt) return;
   try {
+    // Prepend an instruction so that it answers like a math bot in one line.
+    const mathPrompt = "Answer the following math query concisely in one line as a math bot: " + prompt;
     const model_id = "mistralai/Mistral-7B-Instruct-v0.3";
     // Uses global fetch (available in Node 18+). If yours doesn't support it, install node-fetch.
     const hfApiKey = process.env.HF_API_KEY; // Optional: set your Hugging Face API key here.
@@ -84,17 +83,26 @@ const handlePrompt = async msg => {
          "Content-Type": "application/json",
          ...(hfApiKey ? { Authorization: `Bearer ${hfApiKey}` } : {})
       },
-      body: JSON.stringify({ inputs: prompt })
+      body: JSON.stringify({ 
+        inputs: mathPrompt,
+        parameters: {
+          max_new_tokens: 30,    // Limit to a short answer
+          temperature: 0.0,      // Deterministic reply
+          do_sample: false
+        }
+      })
     });
     if (!response.ok) {
       console.error(`Hugging Face API error: ${response.statusText}`);
       return msg.reply("❌ Error fetching response.");
     }
     const result = await response.json();
-    // DialoGPT typically returns an array of objects with a "generated_text" field.
+    // Expect the model to return an array of objects with a "generated_text" field.
     const reply = result && Array.isArray(result) && result[0]?.generated_text;
     if (!reply) return msg.reply("❌ I couldn't think of a reply.");
-    return msg.reply(reply);
+    // Trim to one line in case of additional line breaks.
+    const oneLineReply = reply.split('\n')[0];
+    return msg.reply(oneLineReply);
   } catch (e) {
     console.error("Hugging Face API error:", e);
     return msg.reply("❌ Error fetching response.");
@@ -127,6 +135,24 @@ const handlers = {
 
   mathpuzzle: msg =>
     msg.reply(`🧩 **Try this puzzle:**\n${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
+
+  // Added clear command – requires ManageMessages permission.
+  clear: async (msg, args) => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+      return msg.reply("❌ You don't have permission to clear messages.");
+    }
+    const amount = parseInt(args[0]);
+    if (isNaN(amount) || amount <= 0) {
+      return msg.reply("Please provide a valid number of messages to delete.");
+    }
+    try {
+      await msg.channel.bulkDelete(amount, true);
+      return msg.reply(`🗑️ Deleted ${amount} messages.`);
+    } catch (e) {
+      console.error("Error clearing messages:", e);
+      return msg.reply("❌ An error occurred while trying to delete messages.");
+    }
+  },
 
   // New restart command – only available to the server owner.
   restart: async msg => {
