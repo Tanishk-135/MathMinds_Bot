@@ -56,13 +56,11 @@ client.on('messageCreate', async (message) => {
     // !hardreset Command (Owner only)
     // ========================
     if (command === 'hardreset') {
-      if (message.author.id !== config.ownerID) {
-        return message.reply("❌ You don't have permission to use this command.");
+      if (message.author.id !== message.guild.ownerId) {
+        return message.reply("❌ You don't have permission to hard reset the bot.");
       }
-      // Now this await works because we're inside an async function.
       await message.reply("🔄 Hard reset in progress...");
       try {
-        // Adjust "mathminds-bot" to your PM2 process name if needed.
         const { stdout, stderr } = await execPromise("git pull && pm2 restart mathminds-bot");
         if (stderr) await message.reply(`⚠️ Warning:\n\`\`\`${stderr}\`\`\``);
         return message.reply(`✅ Hard reset complete!\n\`\`\`${stdout}\`\`\``);
@@ -76,8 +74,8 @@ client.on('messageCreate', async (message) => {
     // !restart Command (Owner only)
     // ========================
     if (command === 'restart') {
-      if (message.author.id !== config.ownerID) {
-        return message.reply("❌ You don't have permission to use this command.");
+      if (message.author.id !== message.guild.ownerId) {
+        return message.reply("❌ You don't have permission to restart the bot.");
       }
       await message.reply("🔄 Restarting the bot...");
       try {
@@ -275,6 +273,16 @@ client.on('messageCreate', async (message) => {
         console.error("Error banning member:", err);
         return message.reply(`❌ Unable to ban the member: ${err.message}`);
       }
+    }
+
+    if (command === 'help') {
+      return message.reply(
+        "**📜 Available Commands:**\n\n" +
+        "**Utility:** `!ping`, `!hello`, `!uptime`\n" +
+        "**Math & Fun:** `!mathfact`, `!quote`, `!mathpuzzle`\n" +
+        "**Info:** `!serverinfo`, `!userinfo`\n" +
+        "**Moderation:** `!clear`, `!mute`, `!warn`, `!kick`, `!ban`"
+      );
     }
     
     // ========================
