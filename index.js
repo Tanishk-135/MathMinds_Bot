@@ -1,7 +1,7 @@
 // Load environment variables from the .env file
 require('dotenv').config();
 
-const { Client, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
 const { GoogleAuth } = require('google-auth-library');
 const { exec } = require('child_process');
 const util = require('util');
@@ -68,14 +68,19 @@ const handlePrompt = async msg => {
     const mathPrompt = `Answer the following math query concisely in one line as a math bot: ${prompt}`;
     const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
     const authClient = await auth.getClient();
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    const projectId = await auth.getProjectId();
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
 
     const res = await authClient.request({
       url,
       method: 'POST',
       data: {
         contents: [{ parts: [{ text: mathPrompt }] }],
-        generationConfig: { candidateCount: 1, temperature: 0, maxOutputTokens: 30 }
+        generationConfig: {
+          candidateCount: 1,
+          temperature: 0,
+          maxOutputTokens: 30
+        }
       }
     });
 
@@ -97,7 +102,7 @@ client.on('messageCreate', async msg => {
 
   if (!msg.content.startsWith('!')) return;
   const [cmd, ...args] = msg.content.slice(1).trim().split(/ +/);
-  const h = handlers?.[cmd.toLowerCase()];
+  const h = handlers[cmd.toLowerCase()];
   if (h) return h(msg, args);
   msg.reply("❓ Unknown command. See !help.");
 });
