@@ -38,7 +38,14 @@ client.once('ready', () => {
 });
 
 // Main command handler
-client.on('messageCreate', async message => {
+client.on('messageCreate', async (message) => {
+  if (message.author.bot || !message.content.startsWith(prefix)) return;
+
+  const args = message.content.slice(prefix.length).trim().split(/ +/);
+  const command = args.shift().toLowerCase();
+
+  console.log(`RAW message received: "${message.content}" from ${message.author.id}`);
+});
   // Ignore messages from bots or without the correct prefix
   if (message.author.bot || !message.content.startsWith(prefix)) return;
 
