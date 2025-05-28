@@ -61,7 +61,9 @@ function delayedRestart(msg, successText, delay = 5000) {
 
 // Handle AI prompt via Vertex AI
 const handlePrompt = async msg => {
-  const prompt = msg.content.replace(/^<@!?\d+>/, '').trim();
+  const prompt = msg.content.replace(/^<@!?
+?
+?\d+>/, '').trim();
   if (!prompt) return;
 
   try {
@@ -69,94 +71,24 @@ const handlePrompt = async msg => {
     const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
     const authClient = await auth.getClient();
     const projectId = await auth.getProjectId();
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.VERTEX_API_KEY}`;
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
-    const response = await authClient.request({
+    const res = await authClient.request({
       url,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       data: {
         prompt: { text: mathPrompt },
         candidateCount: 1,
-        temperature: 0.0,
+        temperature: 0,
         maxOutputTokens: 30
       }
     });
 
-    const reply = response.data.candidates?.[0]?.output;
-    if (!reply) return msg.reply("❌ I couldn't think of a reply.");
-    msg.reply(reply.split('\n')[0]);
-  } catch (e) {
-    console.error('Vertex AI error:', e);
-    msg.reply('❌ Error fetching response from Vertex AI.');
-  }
-};
-
-// Command handlers
-const handlers = {
-  help: msg => {
-    const isOwner = msg.author.id === msg.guild?.ownerId;
-    let reply = "**Commands:** • Utility: ping, hello, uptime • Fun: mathfact, quote, mathpuzzle • Info: serverinfo, userinfo • AI: Mention the bot and ask anything!";
-    if (isOwner) reply += " • Mod: clear, mute, warn, kick, ban • Admin: restart, hardreset";
+    const reply = res?.data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate an answer.';
     msg.reply(reply);
-  },
-
-  hello: msg => msg.reply('Hello!'),
-  ping: msg => msg.reply(`Pong! ${Date.now() - msg.createdTimestamp}ms`),
-  uptime: msg => msg.reply(`Uptime: ${formatUptime(Date.now() - readyAt)}`),
-
-  mathfact: msg => msg.reply(`🧼 **Did you know?** ${FACTS[Math.floor(Math.random() * FACTS.length)]}`),
-  quote: msg => msg.reply(`📜 **Thought of the day:** \"${QUOTES[Math.floor(Math.random() * QUOTES.length)]}\"`),
-  mathpuzzle: msg => msg.reply(`🧹 **Try this puzzle:** ${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
-
-  serverinfo: msg => {
-    const { name, memberCount, ownerId } = msg.guild;
-    msg.reply(`📄 **Server Name:** ${name}\n👥 **Members:** ${memberCount}\n👤 **Owner ID:** ${ownerId}`);
-  },
-
-  userinfo: msg => {
-    const { username, id, createdAt } = msg.author;
-    msg.reply(`📄 **Username:** ${username}\n🌐 **User ID:** ${id}\n📅 **Account Created:** ${createdAt.toDateString()}`);
-  },
-
-  clear: async (msg, args) => {
-    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-      return msg.reply("❌ You don't have permission to clear messages.");
-    }
-    const amount = parseInt(args[0]);
-    if (isNaN(amount) || amount <= 0) {
-      return msg.reply("Please provide a valid number of messages to delete.");
-    }
-    try {
-      await msg.channel.bulkDelete(amount, true);
-      msg.reply(`🗑️ Deleted ${amount} messages.`);
-    } catch (e) {
-      console.error('Error clearing messages:', e);
-      msg.reply("❌ An error occurred while trying to delete messages.");
-    }
-  },
-
-  restart: async msg => {
-    if (msg.guild && msg.author.id !== msg.guild.ownerId) {
-      return msg.reply("❌ You don't have permission to restart the bot.");
-    }
-    await msg.reply("🔄 Restarting the bot, please wait...");
-    delayedRestart(msg, '✅ Restart completed!');
-  },
-
-  hardreset: async msg => {
-    if (msg.guild && msg.author.id !== msg.guild.ownerId) {
-      return msg.reply("❌ You don't have permission to hard reset the bot.");
-    }
-    await msg.reply("🔄 Hard reset in progress, please wait...");
-    try {
-      const { stdout, stderr } = await execPromise('git pull');
-      if (stderr) await msg.reply(`⚠️ Warning during git pull: ${stderr}`);
-      delayedRestart(msg, `✅ Hard reset completed! ${stdout}`);
-    } catch (e) {
-      console.error('Error during hardreset:', e);
-      msg.reply(`❌ Error during hard reset: ${e.message}`);
-    }
+  } catch (error) {
+    console.error("Error calling Vertex AI:", error);
+    msg.reply("⚠️ Failed to get a response from the AI.");
   }
 };
 
