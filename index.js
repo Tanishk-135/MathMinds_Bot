@@ -1,12 +1,73 @@
-// Modified command handlers with user feedback, permission filtering, and UX improvements
+// Load environment variables from the .env file
+require('dotenv').config();
 
-// Replace previous handlers object with this updated version:
+const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
+
+// Static cache
+const FACTS = [
+  "Zero was invented by Indian mathematicians.",
+  "A circle has infinite lines of symmetry.",
+  "Euler's identity: e^(iπ) + 1 = 0."
+];
+const QUOTES = [
+  "Mathematics is the language… - Galileo",
+  "Pure mathematics is…the poetry of logical ideas. - Einstein",
+  "Do not worry about your difficulties… - Einstein"
+];
+const PUZZLES = [
+  "I am a 3-digit number. Tens = ones + 5; hundreds = tens – 8.",
+  "Next in sequence: 1, 4, 9, 16, 25, __?",
+  "17 sheep, all but 9 run away. How many remain?"
+];
+
+// Config/constants
+const TOKEN = process.env.BOT_TOKEN;
+const STARTUP_IGNORE = 1000;  // ms
+const RESTART_DELAY = 1000;   // ms
+
+// Client setup
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.MessageContent
+  ]
+});
+let readyAt;
+
+client.once('ready', () => {
+  readyAt = Date.now();
+  console.log(`Logged in as ${client.user.tag}`);
+});
+
+// Helpers
+const delayExit = () => setTimeout(() => process.exit(0), RESTART_DELAY);
+const parseMinutes = str => {
+  const m = parseInt(str);
+  return isNaN(m) ? null : m * 60 * 1000;
+};
+const formatUptime = ms => {
+  const m = Math.floor(ms / 60000) % 60;
+  const h = Math.floor(ms / 3600000) % 24;
+  const d = Math.floor(ms / 86400000);
+  return `${d}d ${h}h ${m}m`;
+};
+
+// Handlers
 const handlers = {
   help: msg => {
-    const isOwner = msg.author.id === msg.guild.ownerId;
-    const general = "• Utility: ping, hello, uptime\n• Fun: mathfact, quote, mathpuzzle\n• Info: serverinfo, userinfo";
-    const mod = "\n• Mod: clear, mute, warn, kick, ban";
-    return msg.reply(`**Commands:**\n${general}${isOwner ? mod : ''}`);
+    const isOwner = msg.author.id === msg.guild?.ownerId;
+    return msg.reply(
+      "**Commands:**\n" +
+      "• Utility: ping, hello, uptime\n" +
+      "• Fun: mathfact, quote, mathpuzzle\n" +
+      "• Info: serverinfo, userinfo\n" +
+      (isOwner ? "• Mod: clear, mute, warn, kick, ban" : '')
+    );
   },
 
   hardreset: async msg => {
@@ -16,14 +77,14 @@ const handlers = {
     try {
       const { stdout, stderr } = await execPromise('git pull');
       const summaryLine = stdout.split('\n').find(line => line.includes('insertion') || line.includes('file changed'));
-      const summary = summaryLine ? `\n📄 ${summaryLine.trim()}` : '';
+      const summary = summaryLine ? `\n📄 Git Output:\n\u0060\u0060\u0060\n${summaryLine.trim()}\n\u0060\u0060\u0060` : '';
       if (stderr.trim()) {
-        await msg.author.send(`⚠️ Warning during git pull:\n\```\n${stderr.trim()}\n\````);
+        await msg.author.send(`⚠️ Warning during git pull:\n\u0060\u0060\u0060\n${stderr.trim()}\n\u0060\u0060\u0060`);
       }
       await msg.reply(`✅ Hard reset complete!${summary}`);
       delayExit();
     } catch (e) {
-      await msg.author.send(`❌ Hard reset error:\n\```\n${e.message}\n\````);
+      await msg.author.send(`❌ Hard reset error:\n\u0060\u0060\u0060\n${e.message}\n\u0060\u0060\u0060`);
       await msg.reply("❌ Hard reset failed.");
     }
   },
@@ -31,20 +92,22 @@ const handlers = {
   restart: async msg => {
     if (msg.author.id !== msg.guild.ownerId)
       return msg.reply("❌ No permission.");
-    await msg.reply("🔄 Restarting...");
-    setTimeout(() => msg.channel.send("✅ Restart complete."), 500);
+    await msg.reply("🔄 Restarting...\n✅ Restart complete!");
     delayExit();
   },
 
+  hello: msg => msg.reply("Hello!"),
   ping: msg => msg.reply(`Pong! ${Date.now() - msg.createdTimestamp}ms`),
+  uptime: msg => msg.reply(`Uptime: ${formatUptime(Date.now() - readyAt)}`),
 
-  uptime: msg => {
-    const ms = Date.now() - readyAt;
-    const days = Math.floor(ms / 86400000);
-    const hours = Math.floor((ms % 86400000) / 3600000);
-    const minutes = Math.floor((ms % 3600000) / 60000);
-    msg.reply(`Uptime: ${days}d ${hours}h ${minutes}m`);
-  },
+  mathfact: msg =>
+    msg.reply(`🧮 **Did you know?**\n${FACTS[Math.floor(Math.random() * FACTS.length)]}`),
+
+  quote: msg =>
+    msg.reply(`📜 **Thought of the day:**\n"${QUOTES[Math.floor(Math.random() * QUOTES.length)]}"`),
+
+  mathpuzzle: msg =>
+    msg.reply(`🧩 **Try this puzzle:**\n${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
 
   serverinfo: msg => {
     if (!msg.guild) return msg.reply('❌ Server only.');
@@ -58,15 +121,24 @@ const handlers = {
     return msg.channel.send({ embeds: [e] });
   },
 
+  userinfo: msg => {
+    const e = new EmbedBuilder()
+      .setTitle('User Info')
+      .addFields(
+        { name: 'User', value: msg.author.tag, inline: true },
+        { name: 'ID', value: msg.author.id, inline: true }
+      );
+    return msg.channel.send({ embeds: [e] });
+  },
+
   clear: async (msg, args) => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages))
       return msg.reply("❌ No permission.");
     const n = parseInt(args[0]);
     if (!n || n < 1) return msg.reply('Provide a valid number.');
-    await msg.delete(); // delete command message first
-    const messages = await msg.channel.messages.fetch({ limit: n });
-    await msg.channel.bulkDelete(messages.filter(m => m.id !== msg.id), true);
-    return msg.channel.send(`🗑️ Deleted ${messages.size} messages.`);
+    await msg.delete();
+    await msg.channel.bulkDelete(n, true);
+    return msg.channel.send(`🗑️ Deleted ${n} messages.`);
   },
 
   mute: async (msg, args) => {
@@ -74,7 +146,7 @@ const handlers = {
       return msg.reply("❌ No permission.");
     const member = msg.mentions.members.first();
     const t = parseMinutes(args[1]);
-    if (!member || !t) return msg.reply('Please mention a user and provide mute duration in minutes.');
+    if (!member || !t) return msg.reply('Please mention a member and time in minutes.');
     const role = msg.guild.roles.cache.find(r => r.name === 'Muted');
     if (!role) return msg.reply("Create a 'Muted' role first.");
     await member.roles.add(role);
@@ -92,7 +164,7 @@ const handlers = {
       return msg.reply("❌ No permission.");
     const member = msg.mentions.members.first();
     const reason = args.slice(1).join(' ');
-    if (!member || !reason) return msg.reply('Please mention a user and a reason.');
+    if (!member || !reason) return msg.reply('Please mention a member and provide a reason.');
     return msg.reply(`⚠️ ${member.user.tag} warned: ${reason}`);
   },
 
@@ -101,7 +173,7 @@ const handlers = {
       return msg.reply("❌ No permission.");
     const member = msg.mentions.members.first();
     const reason = args.slice(1).join(' ') || 'No reason';
-    if (!member) return msg.reply('Please mention a member to kick.');
+    if (!member) return msg.reply('Please mention a member.');
     try {
       await member.kick(reason);
       return msg.reply(`Kicked ${member.user.tag}.`);
@@ -115,33 +187,30 @@ const handlers = {
       return msg.reply("❌ No permission.");
     const member = msg.mentions.members.first();
     const reason = args.slice(1).join(' ') || 'No reason';
-    if (!member) return msg.reply('Please mention a member to ban.');
+    if (!member) return msg.reply('Please mention a member.');
     try {
       await member.ban({ reason });
       return msg.reply(`🔨 Banned ${member.user.tag}.`);
     } catch {
       return msg.reply('❌ Failed to ban.');
     }
-  },
-
-  hello: msg => msg.reply("Hello!"),
-
-  mathfact: msg =>
-    msg.reply(`🧮 **Did you know?**\n${FACTS[Math.floor(Math.random() * FACTS.length)]}`),
-
-  quote: msg =>
-    msg.reply(`📜 **Thought of the day:**\n\"${QUOTES[Math.floor(Math.random() * QUOTES.length)]}\"`),
-
-  mathpuzzle: msg =>
-    msg.reply(`🧩 **Try this puzzle:**\n${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
-
-  userinfo: msg => {
-    const e = new EmbedBuilder()
-      .setTitle('User Info')
-      .addFields(
-        { name: 'User', value: msg.author.tag, inline: true },
-        { name: 'ID', value: msg.author.id, inline: true }
-      );
-    return msg.channel.send({ embeds: [e] });
   }
 };
+
+// Message listener
+client.on('messageCreate', async msg => {
+  if (msg.author.bot) return;
+  if (Date.now() - (readyAt || 0) < STARTUP_IGNORE) return;
+  if (!msg.content.startsWith('!')) return;
+
+  const [cmd, ...args] = msg.content.slice(1).trim().split(/ +/);
+  const h = handlers[cmd.toLowerCase()];
+  try {
+    if (h) return h(msg, args);
+    return msg.reply("❓ Unknown command. See !help.");
+  } catch {
+    return msg.reply("❌ An error occurred.");
+  }
+});
+
+client.login(TOKEN);
