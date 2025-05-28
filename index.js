@@ -90,9 +90,12 @@ client.on('messageCreate', async (message) => {
       }
       await message.reply("🔄 Restarting the bot, please wait...");
       try {
-        const { stdout, stderr } = await execPromise("pm2 restart mathminds-bot");
-        if (stderr) await message.reply(`⚠️ Warning:\n\`\`\`${stderr}\`\`\``);
-        return message.reply(`✅ Restart completed!\n\`\`\`${stdout}\`\`\``);
+        // Send final confirmation before exiting.
+        await message.reply("✅ Restart completed!");
+        // Wait 2 seconds to ensure the confirmation message is sent.
+        setTimeout(() => {
+          process.exit(0);
+        }, 2000);
       } catch (err) {
         console.error("Error during !restart:", err);
         return message.reply(`❌ Error during restart: \`${err.message}\``);
