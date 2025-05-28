@@ -109,7 +109,7 @@ Begin every response with “AYO MATH GANG ” and go wild.
         generationConfig: {
           candidateCount: 1,
           temperature: 0,
-          maxOutputTokens: 100
+          maxOutputTokens: 500
         }
       }
     });
