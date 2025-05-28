@@ -94,7 +94,6 @@ You’re not just MathBot.
 You’re Mathy: Lord of the Drip... and Derivatives.
 
 Begin every response with “AYO MATH GANG ” and go wild.
-[12:18 AM]
  ${prompt}`;
     const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
     const authClient = await auth.getClient();
@@ -109,7 +108,7 @@ Begin every response with “AYO MATH GANG ” and go wild.
         generationConfig: {
           candidateCount: 1,
           temperature: 0,
-          maxOutputTokens: 500
+          maxOutputTokens: 50000
         }
       }
     });
