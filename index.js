@@ -1,56 +1,53 @@
-// Load environment variables from .env file
+// Load environment variables from the .env file
 require('dotenv').config();
 
-const { Client, Intents, MessageEmbed } = require('discord.js');
+const { Client, GatewayIntentBits, MessageEmbed, PermissionFlagsBits } = require('discord.js');
 const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
 const fs = require('fs');
 const path = require('path');
 
-// Use environment variables for sensitive information
+// Use environment variables for sensitive data
 const config = {
   token: process.env.BOT_TOKEN,
   ownerID: process.env.OWNER_ID
 };
 
-// Create a new Discord client with the required intents
+// Create a new Discord client with v14 intents
 const client = new Client({
   intents: [
-    Intents.FLAGS.GUILDS, 
-    Intents.FLAGS.GUILD_MESSAGES, 
-    Intents.FLAGS.GUILD_MEMBERS // needed for moderation commands
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMembers
   ]
 });
 
 // Define the command prefix
 const prefix = "!";
 
-// Helper function: Parse time (in minutes) to milliseconds
+// Helper function: Convert minutes to milliseconds
 function parseTime(timeStr) {
   const minutes = parseInt(timeStr);
   return isNaN(minutes) ? null : minutes * 60 * 1000;
 }
 
-// When the bot is ready
+// When the bot is ready, log it in the console
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
 // Main command handler
 client.on('messageCreate', async message => {
-  // Ignore messages from bots or without the proper prefix
+  // Ignore messages from bots or without the correct prefix
   if (message.author.bot || !message.content.startsWith(prefix)) return;
 
-  // Split the command and arguments
+  // Split the command and the arguments
   const args = message.content.slice(prefix.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
   try {
-    // ========================
-    // !hardreset Command (Owner Only)
-    // Pull updates from GitHub and restart the bot via PM2.
-    // ========================
+    // !hardreset Command (Owner only)
     if (command === 'hardreset') {
       if (message.author.id !== config.ownerID) {
         return message.reply("❌ You don't have permission to use this command.");
@@ -67,10 +64,7 @@ client.on('messageCreate', async message => {
       }
     }
 
-    // ========================
-    // !restart Command (Owner Only)
-    // Restarts the bot via PM2 without pulling updates.
-    // ========================
+    // !restart Command (Owner only)
     if (command === 'restart') {
       if (message.author.id !== config.ownerID) {
         return message.reply("❌ You don't have permission to use this command.");
@@ -86,34 +80,26 @@ client.on('messageCreate', async message => {
       }
     }
 
-    // ========================
     // !hello Command - Greet the bot.
-    // ========================
     if (command === 'hello') {
       return message.reply("Hello! How can I assist you today?");
     }
 
-    // ========================
     // !ping Command - Check the bot's latency.
-    // ========================
     if (command === 'ping') {
       const sent = await message.reply("Pinging...");
       const latency = sent.createdTimestamp - message.createdTimestamp;
       return sent.edit(`Pong! Latency is ${latency}ms.`);
     }
 
-    // ========================
-    // !uptime Command - Check how long the bot has been running.
-    // ========================
+    // !uptime Command - How long the bot has been running.
     if (command === 'uptime') {
       const uptime = process.uptime();
       const minutes = Math.floor(uptime / 60);
       return message.reply(`🕒 Bot has been running for **${minutes} minutes**.`);
     }
 
-    // ========================
     // !mathfact Command - Get an interesting mathematical fact.
-    // ========================
     if (command === 'mathfact') {
       const facts = [
         "The number zero was invented by Indian mathematicians.",
@@ -124,9 +110,7 @@ client.on('messageCreate', async message => {
       return message.reply(`🧮 Math Fact: **${fact}**`);
     }
 
-    // ========================
     // !quote Command - Receive a famous mathematical quote.
-    // ========================
     if (command === 'quote') {
       const quotes = [
         "Mathematics is the language with which God has written the universe. - Galileo",
@@ -137,9 +121,7 @@ client.on('messageCreate', async message => {
       return message.reply(`📜 Math Quote: **${quote}**`);
     }
 
-    // ========================
     // !mathpuzzle Command - Get a challenging math puzzle.
-    // ========================
     if (command === 'mathpuzzle') {
       const puzzles = [
         "I am a three-digit number. My tens digit is five more than my ones digit, and my hundreds digit is eight less than my tens digit. What number am I?",
@@ -150,12 +132,9 @@ client.on('messageCreate', async message => {
       return message.reply(`🧩 Math Puzzle: **${puzzle}**`);
     }
 
-    // ========================
     // !serverinfo Command - Display info about this server.
-    // ========================
     if (command === 'serverinfo') {
-      if (!message.guild)
-        return message.reply("This command can only be used in a server.");
+      if (!message.guild) return message.reply("This command can only be used in a server.");
       const embed = new MessageEmbed()
         .setTitle("Server Info")
         .setThumbnail(message.guild.iconURL({ dynamic: true }))
@@ -165,9 +144,7 @@ client.on('messageCreate', async message => {
       return message.channel.send({ embeds: [embed] });
     }
 
-    // ========================
     // !userinfo Command - Show your user information.
-    // ========================
     if (command === 'userinfo') {
       const embed = new MessageEmbed()
         .setTitle("User Info")
@@ -178,38 +155,29 @@ client.on('messageCreate', async message => {
       return message.channel.send({ embeds: [embed] });
     }
 
-    // ========================
     // !clear Command - Delete a specified number of messages.
-    // ========================
     if (command === 'clear') {
-      if (!message.member.permissions.has('MANAGE_MESSAGES')) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages))
         return message.reply("❌ You don't have permission to use this command.");
-      }
       const amount = parseInt(args[0]);
       if (isNaN(amount) || amount <= 0)
         return message.reply("Please provide a valid number of messages to delete.");
-      
-      // Bulk-delete messages (ignores messages older than 14 days)
       await message.channel.bulkDelete(amount, true);
       return message.reply(`🗑️ Deleted **${amount}** messages.`);
     }
 
-    // ========================
     // !mute Command - Temporarily mute a user (requires a mute role).
     // Usage: !mute @user [time in minutes]
-    // ========================
     if (command === 'mute') {
-      if (!message.member.permissions.has('MANAGE_ROLES')) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles))
         return message.reply("❌ You don't have permission to use this command.");
-      }
       const member = message.mentions.members.first();
       if (!member) return message.reply("Please mention a valid member to mute.");
-      
       const timeArg = args[1];
       const time = parseTime(timeArg);
       if (time === null) return message.reply("Please provide a valid time in minutes.");
       
-      // Find the mute role (it must be named "Muted" in your server)
+      // Find the mute role (assumes a role named "Muted" exists)
       const muteRole = message.guild.roles.cache.find(role => role.name.toLowerCase() === 'muted');
       if (!muteRole) return message.reply("Mute role not found. Please create a role named 'Muted'.");
       
@@ -226,36 +194,26 @@ client.on('messageCreate', async message => {
       return;
     }
 
-    // ========================
     // !warn Command - Issue a warning to a user.
     // Usage: !warn @user [reason]
-    // ========================
     if (command === 'warn') {
-      if (!message.member.permissions.has('MANAGE_MESSAGES')) {
+      if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages))
         return message.reply("❌ You don't have permission to use this command.");
-      }
       const member = message.mentions.members.first();
       if (!member) return message.reply("Please mention a valid member to warn.");
-      
       const reason = args.slice(1).join(" ");
       if (!reason) return message.reply("Please provide a reason for the warning.");
-      
-      // Here you could also log the warning to a file or database
       message.channel.send(`⚠️ ${member.user.tag} has been warned for: ${reason}`);
       return;
     }
 
-    // ========================
     // !kick Command - Kick a user.
     // Usage: !kick @user [reason]
-    // ========================
     if (command === 'kick') {
-      if (!message.member.permissions.has('KICK_MEMBERS')) {
+      if (!message.member.permissions.has(PermissionFlagsBits.KickMembers))
         return message.reply("❌ You don't have permission to use this command.");
-      }
       const member = message.mentions.members.first();
       if (!member) return message.reply("Please mention a valid member to kick.");
-      
       const reason = args.slice(1).join(" ") || "No reason provided";
       try {
         await member.kick(reason);
@@ -266,17 +224,13 @@ client.on('messageCreate', async message => {
       }
     }
 
-    // ========================
     // !ban Command - Ban a user.
     // Usage: !ban @user [reason]
-    // ========================
     if (command === 'ban') {
-      if (!message.member.permissions.has('BAN_MEMBERS')) {
+      if (!message.member.permissions.has(PermissionFlagsBits.BanMembers))
         return message.reply("❌ You don't have permission to use this command.");
-      }
       const member = message.mentions.members.first();
       if (!member) return message.reply("Please mention a valid member to ban.");
-      
       const reason = args.slice(1).join(" ") || "No reason provided";
       try {
         await member.ban({ reason });
@@ -286,10 +240,8 @@ client.on('messageCreate', async message => {
         return message.reply(`❌ Unable to ban the member: ${err.message}`);
       }
     }
-
-    // ========================
-    // Unknown command fallback
-    // ========================
+    
+    // Fallback: Unknown command
     return message.reply("❌ Unknown command. Type `!help` for a list of available commands.");
     
   } catch (error) {
@@ -298,5 +250,5 @@ client.on('messageCreate', async message => {
   }
 });
 
-// Log in the bot using the token from .env
+// Log in the bot using the token from the .env file
 client.login(config.token);
