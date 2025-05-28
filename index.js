@@ -1,3 +1,6 @@
+// Load environment variables from .env file
+require('dotenv').config();
+
 const { Client, Intents, MessageEmbed } = require('discord.js');
 const { exec } = require('child_process');
 const util = require('util');
@@ -5,46 +8,48 @@ const execPromise = util.promisify(exec);
 const fs = require('fs');
 const path = require('path');
 
-// Load configuration from config.json (token and ownerID required)
-const config = require('./config.json');
+// Use environment variables for sensitive information
+const config = {
+  token: process.env.BOT_TOKEN,
+  ownerID: process.env.OWNER_ID
+};
 
-// Create a new Discord client with required intents.
+// Create a new Discord client with the required intents
 const client = new Client({
   intents: [
-    Intents.FLAGS.GUILDS,
-    Intents.FLAGS.GUILD_MESSAGES,
-    Intents.FLAGS.GUILD_MEMBERS // required for moderation commands like kick/ban/mute
+    Intents.FLAGS.GUILDS, 
+    Intents.FLAGS.GUILD_MESSAGES, 
+    Intents.FLAGS.GUILD_MEMBERS // needed for moderation commands
   ]
 });
 
-// Define command prefix.
+// Define the command prefix
 const prefix = "!";
 
-// Helper: Parse time in minutes (returns milliseconds)
+// Helper function: Parse time (in minutes) to milliseconds
 function parseTime(timeStr) {
   const minutes = parseInt(timeStr);
-  if (isNaN(minutes)) return null;
-  return minutes * 60 * 1000;
+  return isNaN(minutes) ? null : minutes * 60 * 1000;
 }
 
-// Event fired when the bot is ready.
+// When the bot is ready
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
-// Main command handler.
+// Main command handler
 client.on('messageCreate', async message => {
-  // Ignore messages from bots or without the proper prefix.
+  // Ignore messages from bots or without the proper prefix
   if (message.author.bot || !message.content.startsWith(prefix)) return;
 
-  // Split command and arguments.
+  // Split the command and arguments
   const args = message.content.slice(prefix.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
   try {
     // ========================
     // !hardreset Command (Owner Only)
-    // Pulls updates from GitHub and restarts the bot via PM2.
+    // Pull updates from GitHub and restart the bot via PM2.
     // ========================
     if (command === 'hardreset') {
       if (message.author.id !== config.ownerID) {
@@ -52,7 +57,7 @@ client.on('messageCreate', async message => {
       }
       await message.reply("🔄 Hard reset in progress...");
       try {
-        // Ensure your PM2 process is named "mathminds-bot" (adjust if necessary).
+        // Adjust "mathminds-bot" to your PM2 process name if needed.
         const { stdout, stderr } = await execPromise("git pull && pm2 restart mathminds-bot");
         if (stderr) await message.reply(`⚠️ Warning:\n\`\`\`${stderr}\`\`\``);
         return message.reply(`✅ Hard reset complete!\n\`\`\`${stdout}\`\`\``);
@@ -95,6 +100,15 @@ client.on('messageCreate', async message => {
       const sent = await message.reply("Pinging...");
       const latency = sent.createdTimestamp - message.createdTimestamp;
       return sent.edit(`Pong! Latency is ${latency}ms.`);
+    }
+
+    // ========================
+    // !uptime Command - Check how long the bot has been running.
+    // ========================
+    if (command === 'uptime') {
+      const uptime = process.uptime();
+      const minutes = Math.floor(uptime / 60);
+      return message.reply(`🕒 Bot has been running for **${minutes} minutes**.`);
     }
 
     // ========================
@@ -146,7 +160,7 @@ client.on('messageCreate', async message => {
         .setTitle("Server Info")
         .setThumbnail(message.guild.iconURL({ dynamic: true }))
         .addField("Server Name", message.guild.name, true)
-        .addField("Member Count", message.guild.memberCount.toString(), true)
+        .addField("Member Count", String(message.guild.memberCount), true)
         .setColor("#00ff00");
       return message.channel.send({ embeds: [embed] });
     }
@@ -165,15 +179,6 @@ client.on('messageCreate', async message => {
     }
 
     // ========================
-    // !uptime Command - Check how long the bot has been running.
-    // ========================
-    if (command === 'uptime') {
-      const uptime = process.uptime();
-      const minutes = Math.floor(uptime / 60);
-      return message.reply(`🕒 Bot has been running for **${minutes} minutes**.`);
-    }
-
-    // ========================
     // !clear Command - Delete a specified number of messages.
     // ========================
     if (command === 'clear') {
@@ -184,7 +189,7 @@ client.on('messageCreate', async message => {
       if (isNaN(amount) || amount <= 0)
         return message.reply("Please provide a valid number of messages to delete.");
       
-      // Bulk-delete messages (the second parameter 'true' ignores messages older than 14 days)
+      // Bulk-delete messages (ignores messages older than 14 days)
       await message.channel.bulkDelete(amount, true);
       return message.reply(`🗑️ Deleted **${amount}** messages.`);
     }
@@ -204,21 +209,20 @@ client.on('messageCreate', async message => {
       const time = parseTime(timeArg);
       if (time === null) return message.reply("Please provide a valid time in minutes.");
       
-      // Find the mute role (assumes a role called "Muted" exists)
+      // Find the mute role (it must be named "Muted" in your server)
       const muteRole = message.guild.roles.cache.find(role => role.name.toLowerCase() === 'muted');
       if (!muteRole) return message.reply("Mute role not found. Please create a role named 'Muted'.");
       
       await member.roles.add(muteRole);
       message.reply(`${member.user.tag} has been muted for ${timeArg} minutes.`);
       
-      // Remove mute after specified time.
+      // Automatically unmute after the specified time.
       setTimeout(async () => {
         if (member.roles.cache.has(muteRole.id)) {
           await member.roles.remove(muteRole);
           message.channel.send(`${member.user.tag} has been unmuted.`);
         }
       }, time);
-      
       return;
     }
 
@@ -236,7 +240,7 @@ client.on('messageCreate', async message => {
       const reason = args.slice(1).join(" ");
       if (!reason) return message.reply("Please provide a reason for the warning.");
       
-      // Optionally log this warning to a file or database.
+      // Here you could also log the warning to a file or database
       message.channel.send(`⚠️ ${member.user.tag} has been warned for: ${reason}`);
       return;
     }
@@ -283,14 +287,16 @@ client.on('messageCreate', async message => {
       }
     }
 
-    // If the command is not recognized.
+    // ========================
+    // Unknown command fallback
+    // ========================
     return message.reply("❌ Unknown command. Type `!help` for a list of available commands.");
-
+    
   } catch (error) {
     console.error("Error in command handler:", error);
     return message.reply(`❌ An error occurred: \`${error.message}\``);
   }
 });
 
-// Log in the bot using the token from config.json.
+// Log in the bot using the token from .env
 client.login(config.token);
