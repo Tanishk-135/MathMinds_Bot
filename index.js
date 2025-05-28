@@ -75,7 +75,7 @@ const handlePrompt = async msg => {
   const prompt = msg.content.replace(/^<@!?\d+>/, '').trim();
   if (!prompt) return;
   try {
-    const model_id = "facebook/blenderbot-3B"; // More reliable Hugging Face chatbot model
+    const model_id = "mistralai/Mistral-7B-Instruct";  // Open model with instructions
     // Uses global fetch (available in Node 18+). If yours doesn't support it, install node-fetch.
     const hfApiKey = process.env.HF_API_KEY; // Optional: set your Hugging Face API key here.
     const response = await fetch(`https://api-inference.huggingface.co/models/${model_id}`, {
