@@ -2,7 +2,7 @@
 require('dotenv').config();
 
 const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
-// Removed the OpenAI require, as we're using Hugging Face now.
+// Removed the OpenAI require, as we're using Gemini now.
 // const OpenAI = require('openai');
 const util = require('util');
 const { exec } = require('child_process');
@@ -40,7 +40,7 @@ const client = new Client({
 });
 let readyAt;
 
-// Removed OpenAI instantiation; using Hugging Face now.
+// Removed OpenAI instantiation; now using Gemini.
 
 client.once('ready', () => {
   readyAt = Date.now();
@@ -66,45 +66,41 @@ function delayedRestart(msg, successText, delay = 5000) {
     .catch(err => console.error("Error sending restart confirmation:", err));
 }
 
-// UPDATED handlePrompt: now passes the math prompt as a plain string.
-// This instructs the model to answer math queries concisely in one line.
+// UPDATED handlePrompt using Gemini API
 const handlePrompt = async msg => {
   const prompt = msg.content.replace(/^<@!?\d+>/, '').trim();
   if (!prompt) return;
   try {
-    // Prepend an instruction for a math bot response.
+    // Prepend an instruction to ensure one-line, math-bot style response.
     const mathPrompt = "Answer the following math query concisely in one line as a math bot: " + prompt;
-    const model_id = "mistralai/Mistral-7B-Instruct-v0.3";
-    const hfApiKey = process.env.HF_API_KEY; // Optional: set your Hugging Face API key here.
-    const response = await fetch(`https://api-inference.huggingface.co/models/${model_id}`, {
+    const apiKey = process.env.GEMINI_API_KEY;
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: "POST",
-      headers: {
-         "Content-Type": "application/json",
-         ...(hfApiKey ? { Authorization: `Bearer ${hfApiKey}` } : {})
-      },
-      // Pass the math prompt as a plain string.
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        inputs: mathPrompt,
-        parameters: {
-          max_new_tokens: 30,    // Limit to a short answer
-          temperature: 0.0,      // Deterministic reply
-          do_sample: false
-        }
+        contents: [
+          {
+            parts: [
+              {
+                text: mathPrompt
+              }
+            ]
+          }
+        ]
       })
     });
     if (!response.ok) {
-      console.error(`Hugging Face API error: ${response.statusText}`);
+      console.error(`Gemini API error: ${response.statusText}`);
       return msg.reply("❌ Error fetching response.");
     }
     const result = await response.json();
-    // Expect the model to return an array with an object having "generated_text".
-    const reply = result && Array.isArray(result) && result[0]?.generated_text;
+    // Extract the reply from the expected nesting (adjust if the API response structure changes)
+    const reply = result?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!reply) return msg.reply("❌ I couldn't think of a reply.");
     // Return only the first line of the response.
-    const oneLineReply = reply.split('\n')[0];
-    return msg.reply(oneLineReply);
+    return msg.reply(reply.split('\n')[0]);
   } catch (e) {
-    console.error("Hugging Face API error:", e);
+    console.error("Gemini API error:", e);
     return msg.reply("❌ Error fetching response.");
   }
 };
