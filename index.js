@@ -2,8 +2,7 @@
 require('dotenv').config();
 
 const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
-// Removed the OpenAI require, as we're using Gemini now.
-// const OpenAI = require('openai');
+const { GoogleAuth } = require('google-auth-library'); // For Vertex AI authentication
 const util = require('util');
 const { exec } = require('child_process');
 const execPromise = util.promisify(exec);
@@ -40,8 +39,6 @@ const client = new Client({
 });
 let readyAt;
 
-// Removed OpenAI instantiation; now using Gemini.
-
 client.once('ready', () => {
   readyAt = Date.now();
   console.log(`Logged in as ${client.user.tag}`);
@@ -66,42 +63,48 @@ function delayedRestart(msg, successText, delay = 5000) {
     .catch(err => console.error("Error sending restart confirmation:", err));
 }
 
-// UPDATED handlePrompt using Gemini API
+// UPDATED handlePrompt using Vertex AI (Gemini model) with service account authentication.
 const handlePrompt = async msg => {
   const prompt = msg.content.replace(/^<@!?\d+>/, '').trim();
   if (!prompt) return;
+
   try {
-    // Prepend an instruction to ensure one-line, math-bot style response.
+    // Construct the math prompt.
     const mathPrompt = "Answer the following math query concisely in one line as a math bot: " + prompt;
-    const apiKey = process.env.GEMINI_API_KEY;
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: mathPrompt
-              }
-            ]
-          }
-        ]
-      })
+    
+    // Create a GoogleAuth client that will pick up credentials from the environment variable 
+    // (GOOGLE_APPLICATION_CREDENTIALS) which should point to your service account JSON key.
+    const auth = new GoogleAuth({
+      scopes: ['https://www.googleapis.com/auth/cloud-platform']
     });
-    if (!response.ok) {
-      console.error(`Gemini API error: ${response.statusText}`);
-      return msg.reply("❌ Error fetching response.");
-    }
-    const result = await response.json();
-    // Extract the reply from the expected nesting (adjust if the API response structure changes)
-    const reply = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const authClient = await auth.getClient();
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+    
+    // Make the authenticated POST request.
+    const response = await authClient.request({
+      url,
+      method: 'POST',
+      headers: { "Content-Type": "application/json" },
+      data: {
+        prompt: { text: mathPrompt },
+        candidateCount: 1,
+        temperature: 0.0,
+        maxOutputTokens: 30
+      }
+    });
+    
+    // Extract the reply. (Adjust the extraction if the response structure changes.)
+    const result = response.data;
+    const reply = result?.candidates && result.candidates[0]?.output;
+    
     if (!reply) return msg.reply("❌ I couldn't think of a reply.");
-    // Return only the first line of the response.
+    
+    // Return only the first line of the reply.
     return msg.reply(reply.split('\n')[0]);
+    
   } catch (e) {
-    console.error("Gemini API error:", e);
-    return msg.reply("❌ Error fetching response.");
+    console.error("Vertex AI error:", e);
+    return msg.reply("❌ Error fetching response from Vertex AI.");
   }
 };
 
@@ -120,7 +123,9 @@ const handlers = {
   },
 
   hello: msg => msg.reply("Hello!"),
+  
   ping: msg => msg.reply(`Pong! ${Date.now() - msg.createdTimestamp}ms`),
+  
   uptime: msg => msg.reply(`Uptime: ${formatUptime(Date.now() - readyAt)}`),
 
   mathfact: msg =>
@@ -132,7 +137,7 @@ const handlers = {
   mathpuzzle: msg =>
     msg.reply(`🧩 **Try this puzzle:**\n${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
 
-  // Added clear command – requires ManageMessages permission.
+  // Clear command – requires ManageMessages permission.
   clear: async (msg, args) => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
       return msg.reply("❌ You don't have permission to clear messages.");
@@ -150,7 +155,7 @@ const handlers = {
     }
   },
 
-  // New restart command – only available to the server owner.
+  // Restart command – only available to the server owner.
   restart: async msg => {
     if (msg.guild && msg.author.id !== msg.guild.ownerId) {
       return msg.reply("❌ You don't have permission to restart the bot.");
@@ -159,7 +164,7 @@ const handlers = {
     delayedRestart(msg, "✅ Restart completed!");
   },
 
-  // New hardreset command – performs a git pull then restarts (admin only).
+  // Hardreset command – performs a git pull then restarts (admin only).
   hardreset: async msg => {
     if (msg.guild && msg.author.id !== msg.guild.ownerId) {
       return msg.reply("❌ You don't have permission to hard reset the bot.");
