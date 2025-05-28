@@ -28,6 +28,10 @@ const config = {
   token: process.env.BOT_TOKEN,
 };
 
+// Constants for speed tuning
+const STARTUP_COOLDOWN_MS = 1000;       // ignore commands for 1 second after startup
+const RESTART_CONFIRM_DELAY_MS = 1000;   // wait 1 second before exiting on restart
+
 // Create a new Discord client
 const client = new Client({
   intents: [
@@ -47,8 +51,8 @@ client.once('ready', () => {
 });
 
 // Helper functions
-const delayedRestart = (message, text, delay = 5000) =>
-  message.reply(text)
+const delayedRestart = (message, delay = RESTART_CONFIRM_DELAY_MS) =>
+  message.author.send("✅ Bot will restart now.")
          .then(() => setTimeout(() => process.exit(0), delay));
 
 const parseTime = str => {
@@ -68,20 +72,25 @@ const handlers = {
   hardreset: async (msg) => {
     if (msg.author.id !== msg.guild.ownerId)
       return msg.reply("❌ You don't have permission to hard reset the bot.");
-    await msg.reply("🔄 Hard reset in progress, please wait...");
+    // Notify in channel without details
+    await msg.reply("🔄 Hard reset initiated. Check your DMs for details.");
     try {
       const { stdout, stderr } = await execPromise('git pull');
-      if (stderr) await msg.reply(`⚠️ Warning during git pull:\n\`\`\`${stderr}\`\`\``);
-      delayedRestart(msg, `✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``);
+      const details = [];
+      if (stderr.trim()) details.push(`Warnings during pull:\n${stderr.trim()}`);
+      details.push(`Output:\n${stdout.trim()}`);
+      // Send full info to requester DM
+      await msg.author.send(`🔄 Hard reset details:\n${details.join("\n\n")}`);
+      delayedRestart(msg);
     } catch (e) {
-      msg.reply(`❌ Error during hard reset: \`${e.message}\``);
+      await msg.author.send(`❌ Hard reset failed: ${e.message}`);
     }
   },
   restart: async (msg) => {
     if (msg.author.id !== msg.guild.ownerId)
       return msg.reply("❌ You don't have permission to restart the bot.");
-    await msg.reply("🔄 Restarting the bot, please wait...");
-    delayedRestart(msg, "✅ Restart completed!");
+    await msg.reply("🔄 Restart initiated. Check your DMs for confirmation.");
+    delayedRestart(msg);
   },
   hello: msg => msg.reply("Hello! How can I assist you today?"),
   ping: async msg => {
@@ -168,7 +177,7 @@ const handlers = {
 // Message handler
 client.on('messageCreate', async message => {
   if (message.author.bot) return;
-  if (Date.now() - (startupTime||0) < 5000) return;
+  if (Date.now() - (startupTime||0) < STARTUP_COOLDOWN_MS) return;
   if (!message.content.startsWith('!')) return;
 
   const [cmd, ...args] = message.content.slice(1).trim().split(/ +/);
