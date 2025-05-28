@@ -67,7 +67,7 @@ const handlePrompt = async msg => {
   try {
     const res = await openai.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
-      model: "gpt-4"
+      model: "gpt-3.5-turbo"
     });
     const reply = res.choices?.[0]?.message?.content;
     if (!reply) return msg.reply("❌ I couldn't think of a reply.");
