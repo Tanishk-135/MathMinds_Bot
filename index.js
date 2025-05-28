@@ -79,7 +79,7 @@ const handlePrompt = async msg => {
         generationConfig: {
           candidateCount: 1,
           temperature: 0,
-          maxOutputTokens: 30
+          maxOutputTokens: 100
         }
       }
     });
