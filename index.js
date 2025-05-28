@@ -24,6 +24,8 @@ const client = new Client({
   ]
 });
 
+
+
 // Define the command prefix
 const prefix = "!";
 
@@ -34,13 +36,18 @@ function parseTime(timeStr) {
 }
 
 // When the bot is ready, log it in the console
+let isReady = false;
+
 client.once('ready', () => {
+  isReady = true;
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
 // Main command handler
 // IMPORTANT: The callback here is declared as "async" to allow the use of await.
 client.on('messageCreate', async (message) => {
+  // Ignore messages if the bot isn't fully ready.
+  if (!isReady) return;
   // Log incoming messages (for debugging)
   console.log(`Received message: "${message.content}" from ${message.author.tag}`);
 
