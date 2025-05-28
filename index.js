@@ -68,7 +68,8 @@ const handlePrompt = async msg => {
     const mathPrompt = `Answer the following math query concisely in one line as a math bot: ${prompt}`;
     const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
     const authClient = await auth.getClient();
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    const projectId = await auth.getProjectId();
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.VERTEX_API_KEY}`;
 
     const response = await authClient.request({
       url,
@@ -85,7 +86,6 @@ const handlePrompt = async msg => {
     const reply = response.data.candidates?.[0]?.output;
     if (!reply) return msg.reply("❌ I couldn't think of a reply.");
     msg.reply(reply.split('\n')[0]);
-
   } catch (e) {
     console.error('Vertex AI error:', e);
     msg.reply('❌ Error fetching response from Vertex AI.');
@@ -110,13 +110,13 @@ const handlers = {
   mathpuzzle: msg => msg.reply(`🧹 **Try this puzzle:** ${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
 
   serverinfo: msg => {
-    const { name, memberCount, createdAt } = msg.guild;
-    msg.reply(`🏢 **Server Name:** ${name}\n📅 **Created On:** ${createdAt.toDateString()}\n👥 **Members:** ${memberCount}`);
+    const { name, memberCount, ownerId } = msg.guild;
+    msg.reply(`📄 **Server Name:** ${name}\n👥 **Members:** ${memberCount}\n👤 **Owner ID:** ${ownerId}`);
   },
 
   userinfo: msg => {
-    const user = msg.mentions.users.first() || msg.author;
-    msg.reply(`👤 **User:** ${user.tag}\n🆔 **ID:** ${user.id}\n📅 **Created On:** ${user.createdAt.toDateString()}`);
+    const { username, id, createdAt } = msg.author;
+    msg.reply(`📄 **Username:** ${username}\n🌐 **User ID:** ${id}\n📅 **Account Created:** ${createdAt.toDateString()}`);
   },
 
   clear: async (msg, args) => {
@@ -135,11 +135,6 @@ const handlers = {
       msg.reply("❌ An error occurred while trying to delete messages.");
     }
   },
-
-  mute: msg => msg.reply("🔇 Mute command not yet implemented."),
-  warn: msg => msg.reply("⚠️ Warn command not yet implemented."),
-  kick: msg => msg.reply("🥾 Kick command not yet implemented."),
-  ban: msg => msg.reply("🔨 Ban command not yet implemented."),
 
   restart: async msg => {
     if (msg.guild && msg.author.id !== msg.guild.ownerId) {
