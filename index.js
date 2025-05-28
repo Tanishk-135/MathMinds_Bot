@@ -3,6 +3,9 @@ require('dotenv').config();
 
 const { Client, GatewayIntentBits } = require('discord.js');
 const { GoogleAuth } = require('google-auth-library');
+const { exec } = require('child_process');
+const util = require('util');
+const execPromise = util.promisify(exec);
 
 // Static data caching
 const FACTS = [
@@ -25,6 +28,7 @@ const PUZZLES = [
 const TOKEN = process.env.BOT_TOKEN;
 const STARTUP_IGNORE = 1000; // ms
 
+// Client setup
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -33,14 +37,14 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
-
-let readyAt = Date.now();
+let readyAt;
 
 client.once('ready', () => {
   readyAt = Date.now();
   console.log(`Logged in as ${client.user.tag}`);
 });
 
+// Format uptime in d/h/m
 const formatUptime = ms => {
   const m = Math.floor(ms / 60000) % 60;
   const h = Math.floor(ms / 3600000) % 24;
@@ -48,61 +52,54 @@ const formatUptime = ms => {
   return `${d}d ${h}h ${m}m`;
 };
 
+// Graceful restart
+function delayedRestart(msg, successText, delay = 5000) {
+  msg.reply(successText)
+    .then(() => setTimeout(() => process.exit(0), delay))
+    .catch(err => console.error("Error sending restart confirmation:", err));
+}
+
 // Handle AI prompt via Vertex AI
-taskPrompt = async msg => {
-  const prompt = msg.content.replace(/^<@!?(\d+)>/, '').trim();
+const handlePrompt = async msg => {
+  const prompt = msg.content.replace(/^<@!?\d+>\s*/, '').trim();
   if (!prompt) return;
 
   try {
     const mathPrompt = `Answer the following math query concisely in one line as a math bot: ${prompt}`;
     const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
     const authClient = await auth.getClient();
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
     const res = await authClient.request({
       url,
       method: 'POST',
       data: {
         contents: [{ parts: [{ text: mathPrompt }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 30 }
+        generationConfig: { candidateCount: 1, temperature: 0, maxOutputTokens: 30 }
       }
     });
 
-    const reply = res?.data?.candidates?.[0]?.content?.parts?.[0]?.text || '⚠️ AI did not return a valid response.';
+    const reply = res?.data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate an answer.';
     msg.reply(reply);
   } catch (error) {
     console.error("Error calling Vertex AI:", error);
-    msg.reply("⚠️ Failed to get a response from the AI. Check API key and project.");
+    msg.reply("⚠️ Failed to get a response from the AI.");
   }
-};
-
-// Command Handlers
-const handlers = {
-  help: msg => msg.reply("Available commands: !help, !fact, !quote, !puzzle, !uptime"),
-  fact: msg => msg.reply(FACTS[Math.floor(Math.random() * FACTS.length)]),
-  quote: msg => msg.reply(QUOTES[Math.floor(Math.random() * QUOTES.length)]),
-  puzzle: msg => msg.reply(PUZZLES[Math.floor(Math.random() * PUZZLES.length)]),
-  uptime: msg => msg.reply(`🤖 Uptime: ${formatUptime(Date.now() - readyAt)}`)
 };
 
 client.on('messageCreate', async msg => {
   if (msg.author.bot) return;
-  if (Date.now() - readyAt < STARTUP_IGNORE) return;
+  if (Date.now() - (readyAt || 0) < STARTUP_IGNORE) return;
 
   if (msg.mentions.has(client.user) && !msg.content.startsWith('!')) {
-    return taskPrompt(msg);
+    return handlePrompt(msg);
   }
 
   if (!msg.content.startsWith('!')) return;
   const [cmd, ...args] = msg.content.slice(1).trim().split(/ +/);
-  const h = handlers[cmd.toLowerCase()];
-  try {
-    if (h) return h(msg, args);
-    msg.reply("❓ Unknown command. Try !help.");
-  } catch (err) {
-    console.error(`Command handler error for !${cmd}:`, err);
-    msg.reply("⚠️ There was an error executing the command.");
-  }
+  const h = handlers?.[cmd.toLowerCase()];
+  if (h) return h(msg, args);
+  msg.reply("❓ Unknown command. See !help.");
 });
 
 client.login(TOKEN);
