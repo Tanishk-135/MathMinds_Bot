@@ -14,20 +14,20 @@ const config = {
   ownerID: process.env.OWNER_ID
 };
 
-// Create a new Discord client with v14 intents
+// Create a new Discord client with all needed intents
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent  // Added to receive message content
+    GatewayIntentBits.MessageContent // Ensures the bot can read message content
   ]
 });
 
 // Define the command prefix
 const prefix = "!";
 
-// Helper function: Convert minutes to milliseconds
+// Helper function: Convert minutes (as string) to milliseconds
 function parseTime(timeStr) {
   const minutes = parseInt(timeStr);
   return isNaN(minutes) ? null : minutes * 60 * 1000;
@@ -39,15 +39,11 @@ client.once('ready', () => {
 });
 
 // Main command handler
+// IMPORTANT: The callback here is declared as "async" to allow the use of await.
 client.on('messageCreate', async (message) => {
+  // Log incoming messages (for debugging)
   console.log(`Received message: "${message.content}" from ${message.author.tag}`);
-  if (message.author.bot || !message.content.startsWith(prefix)) return;
 
-  const args = message.content.slice(prefix.length).trim().split(/ +/);
-  const command = args.shift().toLowerCase();
-
-  console.log(`RAW message received: "${message.content}" from ${message.author.id}`);
-});
   // Ignore messages from bots or without the correct prefix
   if (message.author.bot || !message.content.startsWith(prefix)) return;
 
@@ -56,11 +52,14 @@ client.on('messageCreate', async (message) => {
   const command = args.shift().toLowerCase();
 
   try {
+    // ========================
     // !hardreset Command (Owner only)
+    // ========================
     if (command === 'hardreset') {
       if (message.author.id !== config.ownerID) {
         return message.reply("❌ You don't have permission to use this command.");
       }
+      // Now this await works because we're inside an async function.
       await message.reply("🔄 Hard reset in progress...");
       try {
         // Adjust "mathminds-bot" to your PM2 process name if needed.
@@ -73,7 +72,9 @@ client.on('messageCreate', async (message) => {
       }
     }
 
+    // ========================
     // !restart Command (Owner only)
+    // ========================
     if (command === 'restart') {
       if (message.author.id !== config.ownerID) {
         return message.reply("❌ You don't have permission to use this command.");
@@ -89,26 +90,34 @@ client.on('messageCreate', async (message) => {
       }
     }
 
-    // !hello Command - Greet the bot.
+    // ========================
+    // !hello Command - Greets the bot.
+    // ========================
     if (command === 'hello') {
       return message.reply("Hello! How can I assist you today?");
     }
 
-    // !ping Command - Check the bot's latency.
+    // ========================
+    // !ping Command - Checks the bot's latency.
+    // ========================
     if (command === 'ping') {
       const sent = await message.reply("Pinging...");
       const latency = sent.createdTimestamp - message.createdTimestamp;
       return sent.edit(`Pong! Latency is ${latency}ms.`);
     }
 
+    // ========================
     // !uptime Command - How long the bot has been running.
+    // ========================
     if (command === 'uptime') {
       const uptime = process.uptime();
       const minutes = Math.floor(uptime / 60);
       return message.reply(`🕒 Bot has been running for **${minutes} minutes**.`);
     }
 
+    // ========================
     // !mathfact Command - Get an interesting mathematical fact.
+    // ========================
     if (command === 'mathfact') {
       const facts = [
         "The number zero was invented by Indian mathematicians.",
@@ -119,7 +128,9 @@ client.on('messageCreate', async (message) => {
       return message.reply(`🧮 Math Fact: **${fact}**`);
     }
 
-    // !quote Command - Receive a famous mathematical quote.
+    // ========================
+    // !quote Command - Famous mathematical quote.
+    // ========================
     if (command === 'quote') {
       const quotes = [
         "Mathematics is the language with which God has written the universe. - Galileo",
@@ -130,7 +141,9 @@ client.on('messageCreate', async (message) => {
       return message.reply(`📜 Math Quote: **${quote}**`);
     }
 
-    // !mathpuzzle Command - Get a challenging math puzzle.
+    // ========================
+    // !mathpuzzle Command - Challenging math puzzle.
+    // ========================
     if (command === 'mathpuzzle') {
       const puzzles = [
         "I am a three-digit number. My tens digit is five more than my ones digit, and my hundreds digit is eight less than my tens digit. What number am I?",
@@ -141,7 +154,9 @@ client.on('messageCreate', async (message) => {
       return message.reply(`🧩 Math Puzzle: **${puzzle}**`);
     }
 
-    // !serverinfo Command - Display info about this server.
+    // ========================
+    // !serverinfo Command - Displays info about this server.
+    // ========================
     if (command === 'serverinfo') {
       if (!message.guild) return message.reply("This command can only be used in a server.");
       const embed = new MessageEmbed()
@@ -153,7 +168,9 @@ client.on('messageCreate', async (message) => {
       return message.channel.send({ embeds: [embed] });
     }
 
-    // !userinfo Command - Show your user information.
+    // ========================
+    // !userinfo Command - Displays your user info.
+    // ========================
     if (command === 'userinfo') {
       const embed = new MessageEmbed()
         .setTitle("User Info")
@@ -164,7 +181,9 @@ client.on('messageCreate', async (message) => {
       return message.channel.send({ embeds: [embed] });
     }
 
-    // !clear Command - Delete a specified number of messages.
+    // ========================
+    // !clear Command - Deletes a specified number of messages.
+    // ========================
     if (command === 'clear') {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages))
         return message.reply("❌ You don't have permission to use this command.");
@@ -175,8 +194,10 @@ client.on('messageCreate', async (message) => {
       return message.reply(`🗑️ Deleted **${amount}** messages.`);
     }
 
-    // !mute Command - Temporarily mute a user (requires a mute role).
+    // ========================
+    // !mute Command - Temporarily mutes a user (requires a "Muted" role).
     // Usage: !mute @user [time in minutes]
+    // ========================
     if (command === 'mute') {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles))
         return message.reply("❌ You don't have permission to use this command.");
@@ -186,7 +207,7 @@ client.on('messageCreate', async (message) => {
       const time = parseTime(timeArg);
       if (time === null) return message.reply("Please provide a valid time in minutes.");
       
-      // Find the mute role (assumes a role named "Muted" exists)
+      // Look for a role named "Muted" (case insensitive)
       const muteRole = message.guild.roles.cache.find(role => role.name.toLowerCase() === 'muted');
       if (!muteRole) return message.reply("Mute role not found. Please create a role named 'Muted'.");
       
@@ -203,8 +224,10 @@ client.on('messageCreate', async (message) => {
       return;
     }
 
-    // !warn Command - Issue a warning to a user.
+    // ========================
+    // !warn Command - Issues a warning to a user.
     // Usage: !warn @user [reason]
+    // ========================
     if (command === 'warn') {
       if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages))
         return message.reply("❌ You don't have permission to use this command.");
@@ -216,8 +239,10 @@ client.on('messageCreate', async (message) => {
       return;
     }
 
-    // !kick Command - Kick a user.
+    // ========================
+    // !kick Command - Kicks a user.
     // Usage: !kick @user [reason]
+    // ========================
     if (command === 'kick') {
       if (!message.member.permissions.has(PermissionFlagsBits.KickMembers))
         return message.reply("❌ You don't have permission to use this command.");
@@ -233,8 +258,10 @@ client.on('messageCreate', async (message) => {
       }
     }
 
-    // !ban Command - Ban a user.
+    // ========================
+    // !ban Command - Bans a user.
     // Usage: !ban @user [reason]
+    // ========================
     if (command === 'ban') {
       if (!message.member.permissions.has(PermissionFlagsBits.BanMembers))
         return message.reply("❌ You don't have permission to use this command.");
@@ -250,7 +277,9 @@ client.on('messageCreate', async (message) => {
       }
     }
     
+    // ========================
     // Fallback: Unknown command
+    // ========================
     return message.reply("❌ Unknown command. Type `!help` for a list of available commands.");
     
   } catch (error) {
