@@ -24,7 +24,13 @@ const client = new Client({
   ]
 });
 
-
+function delayedRestart(message, successText) {
+  message.reply(successText).then(() => {
+    setTimeout(() => {
+      process.exit(0);
+    }, 5000);  // 5-second delay before exiting
+  }).catch(err => console.error("Error sending restart confirmation:", err));
+}
 
 // Define the command prefix
 const prefix = "!";
@@ -66,22 +72,17 @@ client.on('messageCreate', async (message) => {
       if (message.author.id !== message.guild.ownerId) {
         return message.reply("❌ You don't have permission to hard reset the bot.");
       }
-      // Inform the user that the command has started.
+      // Inform the user that the reset has started.
       await message.reply("🔄 Hard reset in progress, please wait...");
-    
+      
       try {
-        // First, perform the 'git pull' to update your code.
+        // Perform the 'git pull' to update your code.
         const { stdout, stderr } = await execPromise("git pull");
         if (stderr) {
           await message.reply(`⚠️ Warning during git pull:\n\`\`\`${stderr}\`\`\``);
         }
-        // Send a confirmation message using the output of the git pull.
-        await message.reply(`✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``);
-        
-        // Wait 2 seconds before exiting so the message gets sent.
-        setTimeout(() => {
-          process.exit(0); // PM2 will restart the process.
-        }, 2000);
+        // Use the delayedRestart function to send confirmation & then exit.
+        delayedRestart(message, `✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``);
       } catch (err) {
         console.error("Error during !hardreset:", err);
         return message.reply(`❌ Error during hard reset: \`${err.message}\``);
@@ -96,13 +97,10 @@ client.on('messageCreate', async (message) => {
         return message.reply("❌ You don't have permission to restart the bot.");
       }
       await message.reply("🔄 Restarting the bot, please wait...");
+      
       try {
-        // Send final confirmation before exiting.
-        await message.reply("✅ Restart completed!");
-        // Wait 2 seconds to ensure the confirmation message is sent.
-        setTimeout(() => {
-          process.exit(0);
-        }, 2000);
+        // Use the delayedRestart function to send confirmation and then exit.
+        delayedRestart(message, "✅ Restart completed!");
       } catch (err) {
         console.error("Error during !restart:", err);
         return message.reply(`❌ Error during restart: \`${err.message}\``);
