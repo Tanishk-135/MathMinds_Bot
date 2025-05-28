@@ -40,6 +40,7 @@ client.once('ready', () => {
 
 // Main command handler
 client.on('messageCreate', async (message) => {
+  console.log(`Received message: "${message.content}" from ${message.author.tag}`);
   if (message.author.bot || !message.content.startsWith(prefix)) return;
 
   const args = message.content.slice(prefix.length).trim().split(/ +/);
