@@ -1,7 +1,7 @@
 // Load environment variables from the .env file
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js'); // Added PermissionFlagsBits
+const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
 // Removed the OpenAI require, as we're using Hugging Face now.
 // const OpenAI = require('openai');
 const util = require('util');
@@ -66,16 +66,14 @@ function delayedRestart(msg, successText, delay = 5000) {
     .catch(err => console.error("Error sending restart confirmation:", err));
 }
 
-// Replace OpenAI-based prompt handling with Hugging Face inference.
-// This version instructs the model to answer math queries concisely in one line.
+// Updated handlePrompt: now wraps the math prompt into an instruct-format object
 const handlePrompt = async msg => {
   const prompt = msg.content.replace(/^<@!?\d+>/, '').trim();
   if (!prompt) return;
   try {
-    // Prepend an instruction so that it answers like a math bot in one line.
+    // Prepend an instruction for a math bot that responds concisely in one line.
     const mathPrompt = "Answer the following math query concisely in one line as a math bot: " + prompt;
     const model_id = "mistralai/Mistral-7B-Instruct-v0.3";
-    // Uses global fetch (available in Node 18+). If yours doesn't support it, install node-fetch.
     const hfApiKey = process.env.HF_API_KEY; // Optional: set your Hugging Face API key here.
     const response = await fetch(`https://api-inference.huggingface.co/models/${model_id}`, {
       method: "POST",
@@ -83,8 +81,12 @@ const handlePrompt = async msg => {
          "Content-Type": "application/json",
          ...(hfApiKey ? { Authorization: `Bearer ${hfApiKey}` } : {})
       },
-      body: JSON.stringify({ 
-        inputs: mathPrompt,
+      // Pass the input as an object with "instruction" and an empty "input"
+      body: JSON.stringify({
+        inputs: { 
+          instruction: mathPrompt, 
+          input: "" 
+        },
         parameters: {
           max_new_tokens: 30,    // Limit to a short answer
           temperature: 0.0,      // Deterministic reply
@@ -97,10 +99,10 @@ const handlePrompt = async msg => {
       return msg.reply("❌ Error fetching response.");
     }
     const result = await response.json();
-    // Expect the model to return an array of objects with a "generated_text" field.
+    // Expect the model to return an array with an object having "generated_text".
     const reply = result && Array.isArray(result) && result[0]?.generated_text;
     if (!reply) return msg.reply("❌ I couldn't think of a reply.");
-    // Trim to one line in case of additional line breaks.
+    // Return only the first line of the response.
     const oneLineReply = reply.split('\n')[0];
     return msg.reply(oneLineReply);
   } catch (e) {
@@ -170,7 +172,6 @@ const handlers = {
     }
     await msg.reply("🔄 Hard reset in progress, please wait...");
     try {
-      // Perform a 'git pull' to update your code.
       const { stdout, stderr } = await execPromise("git pull");
       if (stderr) {
         await msg.reply(`⚠️ Warning during git pull:\n\`\`\`${stderr}\`\`\``);
