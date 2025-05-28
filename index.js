@@ -1,10 +1,15 @@
+```javascript
 // Load environment variables from the .env file
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
-const { GoogleAuth } = require('google-auth-library'); // For Vertex AI authentication
-const util = require('util');
+const {
+  Client,
+  GatewayIntentBits,
+  PermissionFlagsBits
+} = require('discord.js');
+const { GoogleAuth } = require('google-auth-library');
 const { exec } = require('child_process');
+const util = require('util');
 const execPromise = util.promisify(exec);
 
 // Static data caching
@@ -26,7 +31,7 @@ const PUZZLES = [
 
 // Config/constants
 const TOKEN = process.env.BOT_TOKEN;
-const STARTUP_IGNORE = 1000;  // ms
+const STARTUP_IGNORE = 1000; // ms
 
 // Client setup
 const client = new Client({
@@ -44,6 +49,7 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
+// Format uptime in d/h/m
 const formatUptime = ms => {
   const m = Math.floor(ms / 60000) % 60;
   const h = Math.floor(ms / 3600000) % 24;
@@ -51,40 +57,33 @@ const formatUptime = ms => {
   return `${d}d ${h}h ${m}m`;
 };
 
-// Utility function to send a confirmation message and then exit after a delay.
-// Used in the !restart and !hardreset commands.
+// Graceful restart
 function delayedRestart(msg, successText, delay = 5000) {
   msg.reply(successText)
-    .then(() => {
-      setTimeout(() => {
-        process.exit(0);
-      }, delay);
-    })
+    .then(() => setTimeout(() => process.exit(0), delay))
     .catch(err => console.error("Error sending restart confirmation:", err));
 }
 
-// UPDATED handlePrompt using Vertex AI (Gemini model) with service account authentication.
+// Handle AI prompt via Vertex AI
 const handlePrompt = async msg => {
   const prompt = msg.content.replace(/^<@!?\d+>/, '').trim();
   if (!prompt) return;
 
   try {
-    // Construct the math prompt.
-    const mathPrompt = "Answer the following math query concisely in one line as a math bot: " + prompt;
-    
-    // Create a GoogleAuth client that will pick up credentials from the environment variable 
-    // (GOOGLE_APPLICATION_CREDENTIALS) which should point to your service account JSON key.
+    const mathPrompt =
+      `Answer the following math query concisely in one line as a math bot: ${prompt}`;
+
     const auth = new GoogleAuth({
-      scopes: ['https://www.googleapis.com/auth/cloud-platform']
+      scopes: ['https://www.googleapis.com/auth/generative-language']
     });
     const authClient = await auth.getClient();
-    const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-    
-    // Make the authenticated POST request.
+    const url =
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+
     const response = await authClient.request({
       url,
       method: 'POST',
-      headers: { "Content-Type": "application/json" },
+      headers: { 'Content-Type': 'application/json' },
       data: {
         prompt: { text: mathPrompt },
         candidateCount: 1,
@@ -92,110 +91,145 @@ const handlePrompt = async msg => {
         maxOutputTokens: 30
       }
     });
-    
-    // Extract the reply. (Adjust the extraction if the response structure changes.)
-    const result = response.data;
-    const reply = result?.candidates && result.candidates[0]?.output;
-    
+
+    const reply = response.data.candidates?.[0]?.output;
     if (!reply) return msg.reply("❌ I couldn't think of a reply.");
-    
-    // Return only the first line of the reply.
     return msg.reply(reply.split('\n')[0]);
-    
+
   } catch (e) {
-    console.error("Vertex AI error:", e);
-    return msg.reply("❌ Error fetching response from Vertex AI.");
+    console.error('Vertex AI error:', e);
+    return msg.reply('❌ Error fetching response from Vertex AI.');
   }
 };
 
+// Command handlers
 const handlers = {
   help: msg => {
     const isOwner = msg.author.id === msg.guild?.ownerId;
-    return msg.reply(
+    const base =
       "**Commands:**\n" +
       "• Utility: ping, hello, uptime\n" +
       "• Fun: mathfact, quote, mathpuzzle\n" +
       "• Info: serverinfo, userinfo\n" +
-      "• AI: Mention the bot and ask anything!\n" +
-      (isOwner ? "• Mod: clear, mute, warn, kick, ban\n" : "") +
-      (isOwner ? "• Admin: restart, hardreset" : "")
-    );
+      "• AI: Mention the bot and ask anything!\n";
+    const mod = isOwner
+      ? "• Mod: clear, mute, warn, kick, ban\n"
+      : '';
+    const admin = isOwner
+      ? "• Admin: restart, hardreset"
+      : '';
+
+    return msg.reply(base + mod + admin);
   },
 
-  hello: msg => msg.reply("Hello!"),
-  
+  hello: msg => msg.reply('Hello!'),
+
   ping: msg => msg.reply(`Pong! ${Date.now() - msg.createdTimestamp}ms`),
-  
-  uptime: msg => msg.reply(`Uptime: ${formatUptime(Date.now() - readyAt)}`),
+
+  uptime: msg =>
+    msg.reply(`Uptime: ${formatUptime(Date.now() - readyAt)}`),
 
   mathfact: msg =>
-    msg.reply(`🧮 **Did you know?**\n${FACTS[Math.floor(Math.random() * FACTS.length)]}`),
+    msg.reply(`🧮 **Did you know?**\n${
+      FACTS[Math.floor(Math.random() * FACTS.length)]
+    }`),
 
   quote: msg =>
-    msg.reply(`📜 **Thought of the day:**\n"${QUOTES[Math.floor(Math.random() * QUOTES.length)]}"`),
+    msg.reply(`📜 **Thought of the day:**\n"${
+      QUOTES[Math.floor(Math.random() * QUOTES.length)]
+    }"`),
 
   mathpuzzle: msg =>
-    msg.reply(`🧩 **Try this puzzle:**\n${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
+    msg.reply(`🧩 **Try this puzzle:**\n${
+      PUZZLES[Math.floor(Math.random() * PUZZLES.length)]
+    }`),
 
-  // Clear command – requires ManageMessages permission.
   clear: async (msg, args) => {
-    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-      return msg.reply("❌ You don't have permission to clear messages.");
-    }
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages))
+      return msg.reply(
+        "❌ You don't have permission to clear messages."
+      );
+
     const amount = parseInt(args[0]);
-    if (isNaN(amount) || amount <= 0) {
-      return msg.reply("Please provide a valid number of messages to delete.");
-    }
+    if (isNaN(amount) || amount <= 0)
+      return msg.reply(
+        "Please provide a valid number of messages to delete."
+      );
+
     try {
       await msg.channel.bulkDelete(amount, true);
       return msg.reply(`🗑️ Deleted ${amount} messages.`);
     } catch (e) {
-      console.error("Error clearing messages:", e);
-      return msg.reply("❌ An error occurred while trying to delete messages.");
+      console.error('Error clearing messages:', e);
+      return msg.reply(
+        "❌ An error occurred while trying to delete messages."
+      );
     }
   },
 
-  // Restart command – only available to the server owner.
   restart: async msg => {
-    if (msg.guild && msg.author.id !== msg.guild.ownerId) {
-      return msg.reply("❌ You don't have permission to restart the bot.");
-    }
-    await msg.reply("🔄 Restarting the bot, please wait...");
-    delayedRestart(msg, "✅ Restart completed!");
+    if (msg.guild && msg.author.id !== msg.guild.ownerId)
+      return msg.reply(
+        "❌ You don't have permission to restart the bot."
+      );
+
+    await msg.reply(
+      "🔄 Restarting the bot, please wait..."
+    );
+    delayedRestart(msg, '✅ Restart completed!');
   },
 
-  // Hardreset command – performs a git pull then restarts (admin only).
   hardreset: async msg => {
-    if (msg.guild && msg.author.id !== msg.guild.ownerId) {
-      return msg.reply("❌ You don't have permission to hard reset the bot.");
-    }
-    await msg.reply("🔄 Hard reset in progress, please wait...");
+    if (msg.guild && msg.author.id !== msg.guild.ownerId)
+      return msg.reply(
+        "❌ You don't have permission to hard reset the bot."
+      );
+
+    await msg.reply(
+      "🔄 Hard reset in progress, please wait..."
+    );
+
     try {
-      const { stdout, stderr } = await execPromise("git pull");
-      if (stderr) {
-        await msg.reply(`⚠️ Warning during git pull:\n\`\`\`${stderr}\`\`\``);
-      }
-      delayedRestart(msg, `✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``);
+      const { stdout, stderr } = await execPromise(
+        'git pull'
+      );
+      if (stderr)
+        await msg.reply(
+          `⚠️ Warning during git pull:\n\`\`\`${stderr}\`\`\``
+        );
+
+      delayedRestart(
+        msg,
+        `✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``
+      );
     } catch (e) {
-      console.error("Error during hardreset:", e);
-      return msg.reply(`❌ Error during hard reset: \`${e.message}\``);
+      console.error('Error during hardreset:', e);
+      return msg.reply(
+        `❌ Error during hard reset: \`${e.message}\``
+      );
     }
   }
 };
 
 client.on('messageCreate', async msg => {
-  // Early exits: ignore bot messages and commands during the startup ignore window.
   if (msg.author.bot) return;
   if (Date.now() - (readyAt || 0) < STARTUP_IGNORE) return;
 
-  // If the message mentions the bot and does not start with '!', treat it as an AI prompt.
-  if (msg.mentions.has(client.user) && !msg.content.startsWith('!')) {
+  // AI: mention-based prompt
+  if (
+    msg.mentions.has(client.user) &&
+    !msg.content.startsWith('!')
+  ) {
     return handlePrompt(msg);
   }
+
+  // Command prefix
   if (!msg.content.startsWith('!')) return;
 
-  const [cmd, ...args] = msg.content.slice(1).trim().split(/ +/);
+  const [cmd, ...args] =
+    msg.content.slice(1).trim().split(/ +/);
   const h = handlers[cmd.toLowerCase()];
+
   try {
     if (h) return h(msg, args);
     return msg.reply("❓ Unknown command. See !help.");
@@ -205,3 +239,4 @@ client.on('messageCreate', async msg => {
 });
 
 client.login(TOKEN);
+```
