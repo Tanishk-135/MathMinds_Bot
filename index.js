@@ -1,11 +1,7 @@
 // Load environment variables from the .env file
 require('dotenv').config();
 
-const {
-  Client,
-  GatewayIntentBits,
-  PermissionFlagsBits
-} = require('discord.js');
+const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
 const { GoogleAuth } = require('google-auth-library');
 const { exec } = require('child_process');
 const util = require('util');
@@ -69,15 +65,10 @@ const handlePrompt = async msg => {
   if (!prompt) return;
 
   try {
-    const mathPrompt =
-      `Answer the following math query concisely in one line as a math bot: ${prompt}`;
-
-    const auth = new GoogleAuth({
-      scopes: ['https://www.googleapis.com/auth/generative-language']
-    });
+    const mathPrompt = `Answer the following math query concisely in one line as a math bot: ${prompt}`;
+    const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
     const authClient = await auth.getClient();
-    const url =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
     const response = await authClient.request({
       url,
@@ -93,11 +84,11 @@ const handlePrompt = async msg => {
 
     const reply = response.data.candidates?.[0]?.output;
     if (!reply) return msg.reply("❌ I couldn't think of a reply.");
-    return msg.reply(reply.split('\n')[0]);
+    msg.reply(reply.split('\n')[0]);
 
   } catch (e) {
     console.error('Vertex AI error:', e);
-    return msg.reply('❌ Error fetching response from Vertex AI.');
+    msg.reply('❌ Error fetching response from Vertex AI.');
   }
 };
 
@@ -105,76 +96,71 @@ const handlePrompt = async msg => {
 const handlers = {
   help: msg => {
     const isOwner = msg.author.id === msg.guild?.ownerId;
-    const base =
-      "**Commands:**\n" +
-      "• Utility: ping, hello, uptime\n" +
-      "• Fun: mathfact, quote, mathpuzzle\n" +
-      "• Info: serverinfo, userinfo\n" +
-      "• AI: Mention the bot and ask anything!\n";
-    const mod = isOwner ? "• Mod: clear, mute, warn, kick, ban\n" : '';
-    const admin = isOwner ? "• Admin: restart, hardreset" : '';
-
-    return msg.reply(base + mod + admin);
+    let reply = "**Commands:** • Utility: ping, hello, uptime • Fun: mathfact, quote, mathpuzzle • Info: serverinfo, userinfo • AI: Mention the bot and ask anything!";
+    if (isOwner) reply += " • Mod: clear, mute, warn, kick, ban • Admin: restart, hardreset";
+    msg.reply(reply);
   },
 
   hello: msg => msg.reply('Hello!'),
   ping: msg => msg.reply(`Pong! ${Date.now() - msg.createdTimestamp}ms`),
   uptime: msg => msg.reply(`Uptime: ${formatUptime(Date.now() - readyAt)}`),
 
-  mathfact: msg =>
-    msg.reply(`🧮 **Did you know?**\n${
-      FACTS[Math.floor(Math.random() * FACTS.length)]
-    }`),
+  mathfact: msg => msg.reply(`🧼 **Did you know?** ${FACTS[Math.floor(Math.random() * FACTS.length)]}`),
+  quote: msg => msg.reply(`📜 **Thought of the day:** \"${QUOTES[Math.floor(Math.random() * QUOTES.length)]}\"`),
+  mathpuzzle: msg => msg.reply(`🧹 **Try this puzzle:** ${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
 
-  quote: msg =>
-    msg.reply(`📜 **Thought of the day:**\n"${
-      QUOTES[Math.floor(Math.random() * QUOTES.length)]
-    }"`),
+  serverinfo: msg => {
+    const { name, memberCount, createdAt } = msg.guild;
+    msg.reply(`🏢 **Server Name:** ${name}\n📅 **Created On:** ${createdAt.toDateString()}\n👥 **Members:** ${memberCount}`);
+  },
 
-  mathpuzzle: msg =>
-    msg.reply(`🧩 **Try this puzzle:**\n${
-      PUZZLES[Math.floor(Math.random() * PUZZLES.length)]
-    }`),
+  userinfo: msg => {
+    const user = msg.mentions.users.first() || msg.author;
+    msg.reply(`👤 **User:** ${user.tag}\n🆔 **ID:** ${user.id}\n📅 **Created On:** ${user.createdAt.toDateString()}`);
+  },
 
   clear: async (msg, args) => {
-    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages))
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
       return msg.reply("❌ You don't have permission to clear messages.");
-
+    }
     const amount = parseInt(args[0]);
-    if (isNaN(amount) || amount <= 0)
+    if (isNaN(amount) || amount <= 0) {
       return msg.reply("Please provide a valid number of messages to delete.");
-
+    }
     try {
       await msg.channel.bulkDelete(amount, true);
-      return msg.reply(`🗑️ Deleted ${amount} messages.`);
+      msg.reply(`🗑️ Deleted ${amount} messages.`);
     } catch (e) {
       console.error('Error clearing messages:', e);
-      return msg.reply("❌ An error occurred while trying to delete messages.");
+      msg.reply("❌ An error occurred while trying to delete messages.");
     }
   },
 
-  restart: async msg => {
-    if (msg.guild && msg.author.id !== msg.guild.ownerId)
-      return msg.reply("❌ You don't have permission to restart the bot.");
+  mute: msg => msg.reply("🔇 Mute command not yet implemented."),
+  warn: msg => msg.reply("⚠️ Warn command not yet implemented."),
+  kick: msg => msg.reply("🥾 Kick command not yet implemented."),
+  ban: msg => msg.reply("🔨 Ban command not yet implemented."),
 
+  restart: async msg => {
+    if (msg.guild && msg.author.id !== msg.guild.ownerId) {
+      return msg.reply("❌ You don't have permission to restart the bot.");
+    }
     await msg.reply("🔄 Restarting the bot, please wait...");
     delayedRestart(msg, '✅ Restart completed!');
   },
 
   hardreset: async msg => {
-    if (msg.guild && msg.author.id !== msg.guild.ownerId)
+    if (msg.guild && msg.author.id !== msg.guild.ownerId) {
       return msg.reply("❌ You don't have permission to hard reset the bot.");
-
+    }
     await msg.reply("🔄 Hard reset in progress, please wait...");
-
     try {
       const { stdout, stderr } = await execPromise('git pull');
       if (stderr) await msg.reply(`⚠️ Warning during git pull: ${stderr}`);
-
       delayedRestart(msg, `✅ Hard reset completed! ${stdout}`);
     } catch (e) {
       console.error('Error during hardreset:', e);
-      return msg.reply(`❌ Error during hard reset: ${e.message}`);
+      msg.reply(`❌ Error during hard reset: ${e.message}`);
     }
   }
 };
@@ -183,24 +169,15 @@ client.on('messageCreate', async msg => {
   if (msg.author.bot) return;
   if (Date.now() - (readyAt || 0) < STARTUP_IGNORE) return;
 
-  // AI: mention-based prompt
   if (msg.mentions.has(client.user) && !msg.content.startsWith('!')) {
     return handlePrompt(msg);
   }
 
-  // Command prefix
   if (!msg.content.startsWith('!')) return;
-
   const [cmd, ...args] = msg.content.slice(1).trim().split(/ +/);
   const h = handlers[cmd.toLowerCase()];
-
-  try {
-    if (h) return h(msg, args);
-    return msg.reply("❓ Unknown command. See !help.");
-  } catch {
-    return msg.reply("❌ An error occurred.");
-  }
+  if (h) return h(msg, args);
+  msg.reply("❓ Unknown command. See !help.");
 });
 
 client.login(TOKEN);
-```
