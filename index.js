@@ -8,26 +8,26 @@ const execPromise = util.promisify(exec);
 const fs = require('fs');
 const path = require('path');
 
-// Use environment variables for sensitive data (BOT_TOKEN is required)
+// Use environment variables for sensitive data.
 const config = {
   token: process.env.BOT_TOKEN,
-  ownerID: process.env.OWNER_ID  // (Optional: not used here, because we check against message.guild.ownerId)
+  ownerID: process.env.OWNER_ID  // Optional; not used because we check against message.guild.ownerId.
 };
 
-// Create a new Discord client with required intents
+// Create a new Discord client with required intents.
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.MessageContent  // Needed to read message content
+    GatewayIntentBits.MessageContent  // Needed to read message content.
   ]
 });
 
-// Define the command prefix
+// Define the command prefix.
 const prefix = "!";
 
-// Global variable to record bot startup time for a cooldown
+// Global variable to record bot startup time for a cooldown.
 let startupTime = Date.now();
 
 client.once('ready', () => {
@@ -35,7 +35,7 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}!`);
 });
 
-// Utility function to send a confirmation message and then exit after a delay.
+// Utility function to send a confirmation message and then exit after a specified delay.
 // This function is used by both !restart and !hardreset.
 function delayedRestart(message, successText, delay = 5000) {
   message.reply(successText)
@@ -53,13 +53,14 @@ function parseTime(timeStr) {
   return isNaN(minutes) ? null : minutes * 60 * 1000;
 }
 
-// Main command handler. We add a startup cooldown to ignore commands during the first 5 seconds after startup.
+// Main command handler.
+// We add a startup cooldown to ignore commands during the first 5 seconds after startup.
 client.on('messageCreate', async (message) => {
   // Ignore messages from bots.
   if (message.author.bot) return;
-  // Ignore any commands received within the first 5 seconds after startup.
+  // Ignore any messages received within the first 5 seconds after startup.
   if (Date.now() - startupTime < 5000) return;
-  // Process only messages that start with the prefix.
+  // Only process messages that start with the prefix.
   if (!message.content.startsWith(prefix)) return;
 
   // Split the incoming message into command and arguments.
@@ -68,7 +69,7 @@ client.on('messageCreate', async (message) => {
 
   try {
     // ===========================
-    // !help Command - Display available commands with improved formatting.
+    // !help Command - Displays available commands.
     // ===========================
     if (command === 'help') {
       return message.reply(
@@ -97,18 +98,19 @@ client.on('messageCreate', async (message) => {
     // !hardreset Command (Restricted to the Server Owner)
     // ===========================
     if (command === 'hardreset') {
+      // Check if the command sender is the server owner.
       if (message.author.id !== message.guild.ownerId) {
         return message.reply("❌ You don't have permission to hard reset the bot.");
       }
-      // Inform the user that the hard reset has started.
+      // Inform the user that the hard reset is starting.
       await message.reply("🔄 Hard reset in progress, please wait...");
       try {
-        // First, perform a 'git pull' to update your code.
+        // Perform 'git pull' to update your code.
         const { stdout, stderr } = await execPromise("git pull");
         if (stderr) {
           await message.reply(`⚠️ Warning during git pull:\n\`\`\`${stderr}\`\`\``);
         }
-        // Use the delayedRestart function to send confirmation and delay exit.
+        // Use the delayedRestart function to send the confirmation and then exit.
         delayedRestart(message, `✅ Hard reset completed!\n\`\`\`${stdout}\`\`\``);
       } catch (err) {
         console.error("Error during !hardreset:", err);
@@ -126,7 +128,7 @@ client.on('messageCreate', async (message) => {
       }
       await message.reply("🔄 Restarting the bot, please wait...");
       try {
-        // Send final confirmation before exiting.
+        // Use delayedRestart to confirm and exit (allowing PM2 to restart the bot).
         delayedRestart(message, "✅ Restart completed!");
       } catch (err) {
         console.error("Error during !restart:", err);
@@ -203,13 +205,14 @@ client.on('messageCreate', async (message) => {
     // !serverinfo Command - Displays information about this server.
     // ===========================
     if (command === 'serverinfo') {
-      if (!message.guild)
-        return message.reply("This command can only be used in a server.");
+      if (!message.guild) return message.reply("This command can only be used in a server.");
       const embed = new EmbedBuilder()
         .setTitle("Server Info")
         .setThumbnail(message.guild.iconURL({ dynamic: true }))
-        .addField("Server Name", message.guild.name, true)
-        .addField("Member Count", String(message.guild.memberCount), true)
+        .addFields(
+          { name: "Server Name", value: message.guild.name, inline: true },
+          { name: "Member Count", value: String(message.guild.memberCount), inline: true }
+        )
         .setColor("#00ff00");
       return message.channel.send({ embeds: [embed] });
     }
@@ -221,8 +224,10 @@ client.on('messageCreate', async (message) => {
       const embed = new EmbedBuilder()
         .setTitle("User Info")
         .setThumbnail(message.author.displayAvatarURL({ dynamic: true }))
-        .addField("Username", message.author.username, true)
-        .addField("ID", message.author.id, true)
+        .addFields(
+          { name: "Username", value: message.author.username, inline: true },
+          { name: "ID", value: message.author.id, inline: true }
+        )
         .setColor("#00ff00");
       return message.channel.send({ embeds: [embed] });
     }
@@ -252,12 +257,15 @@ client.on('messageCreate', async (message) => {
       const timeArg = args[1];
       const time = parseTime(timeArg);
       if (time === null) return message.reply("Please provide a valid time in minutes.");
-      // Find a role named "Muted" (case insensitive)
+      
+      // Look for a role named "Muted" (case insensitive)
       const muteRole = message.guild.roles.cache.find(role => role.name.toLowerCase() === 'muted');
       if (!muteRole) return message.reply("Mute role not found. Please create a role named 'Muted'.");
+      
       await member.roles.add(muteRole);
       message.reply(`${member.user.tag} has been muted for ${timeArg} minutes.`);
-      // Automatically unmute after specified time
+      
+      // Automatically unmute after the specified time.
       setTimeout(async () => {
         if (member.roles.cache.has(muteRole.id)) {
           await member.roles.remove(muteRole);
