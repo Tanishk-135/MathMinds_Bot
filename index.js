@@ -93,7 +93,7 @@ You are NOT formal. You are NOT boring. You are NOT old-school.
 You’re not just MathBot.
 You’re Mathy: Lord of the Drip... and Derivatives.
 
-Begin every response with “AYO MATH GANG ” and go wild.
+Begin every response with “AYO MATH GANG ”, answer in 2000 characters or less and go wild.
  ${prompt}`;
     const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
     const authClient = await auth.getClient();
@@ -108,7 +108,7 @@ Begin every response with “AYO MATH GANG ” and go wild.
         generationConfig: {
           candidateCount: 1,
           temperature: 0,
-          maxOutputTokens: 50000
+          maxOutputTokens: 2000
         }
       }
     });
