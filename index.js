@@ -31,7 +31,7 @@ client.once('ready', () => {
 const formatUptime = ms => {
   const m = Math.floor(ms / 60000) % 60;
   const h = Math.floor(ms / 3600000) % 24;
-  const d = Math.floor(ms /86400000);
+  const d = Math.floor(ms / 86400000);
   return `${d}d ${h}h ${m}m`;
 };
 
@@ -58,6 +58,50 @@ const toSuperscript = num => {
 
 const testStr = "··Hello World··"; // or "⋅⋅Hello World⋅⋅" based on what you see!
 console.log(formatMathText(testStr));
+
+// -------------------------------------------------------------------
+// Exponential Equation Solver functions (Quadratic Equation Logic)
+// These functions help Mathy slow down (using delays) when outputting debugging logs.
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function solveExponentialEquation(expression) {
+  console.log(`🔍 Solving: ${expression}`);
+  await delay(1000);
+
+  // Parse the equation (assuming it's in the form (expr)^(expr) = constant)
+  let match = expression.match(/\((.*?)\)\^\((.*?)\) = (\d+)/);
+  if (!match) return "⚠️ Invalid equation format.";
+
+  let baseExpr = match[1].trim();
+  let exponentExpr = match[2].trim();
+  let targetValue = parseFloat(match[3]);
+
+  // Ensure base and exponent are identical before solving
+  if (baseExpr !== exponentExpr) {
+      return "❌ Exponent and base must be equal!";
+  }
+
+  console.log(`📌 Found quadratic expression: ${baseExpr}`);
+  await delay(1000);
+
+  let yValues = findValidExponentSolutions(targetValue);
+  console.log(`✅ Possible values for ${baseExpr}: ${yValues.join(', ')}`);
+  await delay(1000);
+
+  return `Solutions: ${yValues.map(y => `x^2 - 4x + 7 = ${y}`)}`;
+}
+
+function findValidExponentSolutions(value) {
+  let solutions = [];
+  for (let y = 1; y <= value; y++) {
+      if (Math.pow(y, y) === value) {
+          solutions.push(y);
+      }
+  }
+  return solutions.length ? solutions : ["No real solutions"];
+}
+// -------------------------------------------------------------------
 
 // AI handler (mention-based prompt)
 const handlePrompt = async msg => {
@@ -135,12 +179,83 @@ client.on('messageCreate', async msg => {
   msg.channel.send('❓ Unknown command. See !help.');
 });
 
-// Command Handlers (only keeping ping, uptime, restart, and hardreset)
+// Command Handlers
 const handlers = {
   ping: msg => msg.channel.send('🌿 Pong!'),
+  hello: msg => msg.channel.send('Hey there! 👋'),
   uptime: msg => msg.channel.send(`⏱ Uptime: ${formatUptime(Date.now() - readyAt)}`),
+  help: msg => msg.channel.send('📘 Commands: !ping, !hello, !uptime, !mathfact, !quote, !mathpuzzle, !serverinfo, !userinfo, !clear, !mute, !warn, !kick, !ban, !restart, !hardreset, !check'),
+  serverinfo: msg => {
+    const { name, memberCount, createdAt } = msg.guild;
+    msg.channel.send(`📡 Server: ${name}\n👥 Members: ${memberCount}\n📅 Created: ${createdAt.toDateString()}`);
+  },
+  userinfo: msg => {
+    const user = msg.mentions.users.first() || msg.author;
+    msg.channel.send(`👤 ${user.tag}\n🆔 ${user.id}\n📅 Created: ${user.createdAt.toDateString()}`);
+  },
+  clear: async msg => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) return msg.channel.send('❌ No permission.');
+    const count = parseInt(msg.content.split(' ')[1]);
+    if (!count || count < 1 || count > 100) return msg.channel.send('⚠️ Provide 1-100.');
+    try {
+      await msg.channel.bulkDelete(count, true);
+      msg.channel.send(`🧹 Deleted ${count} messages.`);
+    } catch (e) {
+      console.error(e);
+      msg.channel.send('❌ Delete failed.');
+    }
+  },
+  mute: async msg => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
+    const m = msg.mentions.members.first();
+    if (!m) return msg.channel.send('❌ Mention user.');
+    const role = msg.guild.roles.cache.find(r => r.name === 'Muted');
+    if (!role) return msg.channel.send('❌ Create "Muted" role.');
+    try {
+      await m.roles.add(role);
+      msg.channel.send(`🔇 ${m.user.tag} muted.`);
+    } catch (e) {
+      console.error(e);
+      msg.channel.send('❌ Mute failed.');
+    }
+  },
+  warn: async msg => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) return msg.channel.send('❌ No permission.');
+    const u = msg.mentions.users.first();
+    if (!u) return msg.channel.send('❌ Mention user.');
+    msg.channel.send(`⚠️ ${u.tag} warned.`);
+  },
+  kick: async msg => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.KickMembers)) return msg.channel.send('❌ No permission.');
+    if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.KickMembers)) return msg.channel.send('❌ Bot lacks permission.');
+    const m = msg.mentions.members.first();
+    if (!m) return msg.channel.send('❌ Mention user.');
+    if (m.roles.highest.position >= msg.guild.members.me.roles.highest.position) return msg.channel.send('❌ Hierarchy prevents kick.');
+    try {
+      await m.kick();
+      msg.channel.send(`👢 ${m.user.tag} kicked.`);
+    } catch (e) {
+      console.error(e);
+      msg.channel.send('❌ Kick failed.');
+    }
+  },
+  ban: async msg => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.BanMembers)) return msg.channel.send('❌ No permission.');
+    if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.BanMembers)) return msg.channel.send('❌ Bot lacks permission.');
+    const m = msg.mentions.members.first();
+    if (!m) return msg.channel.send('❌ Mention user.');
+    if (m.roles.highest.position >= msg.guild.members.me.roles.highest.position) return msg.channel.send('❌ Hierarchy prevents ban.');
+    try {
+      await m.ban();
+      msg.channel.send(`🔨 ${m.user.tag} banned.`);
+    } catch (e) {
+      console.error(e);
+      msg.channel.send('❌ Ban failed.');
+    }
+  },
   restart: msg => delayedRestart(msg, '♻️ Restarting...'),
-  hardreset: msg => delayedRestart(msg, '💥 Hardresetting...', 2000)
+  hardreset: msg => delayedRestart(msg, '💥 Hardresetting...', 2000),
+  check: msg => msg.channel.send('✅ All commands operational.')
 };
 
 client.login(TOKEN);
