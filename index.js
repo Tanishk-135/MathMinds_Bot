@@ -75,7 +75,6 @@ function toSuperscript(num) {
 
 // AI handler (mention-based prompt)
 const handlePrompt = async msg => {
-  // Strip bot mention using ID
   const mentionRegex = new RegExp(`^<@!?${client.user.id}>\\s*`);
   const prompt = msg.content.replace(mentionRegex, '').trim();
   if (!prompt) return;
@@ -93,32 +92,32 @@ const handlePrompt = async msg => {
       }
     });
     let reply = res.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, could not fetch an answer.';
-    // Format math and superscripts
     reply = formatMathText(reply);
 
-    // Split into chunks of <=2000 characters without breaking words
-    const maxLen = 2000;
-    let cursor = 0;
-    while (cursor < reply.length) {
-      let end = Math.min(cursor + maxLen, reply.length);
-      // Try to cut at last newline or space
-      if (end < reply.length) {
-        const substr = reply.slice(cursor, end);
-        const nl = substr.lastIndexOf('
-');
-        const sp = substr.lastIndexOf(' ');
-        const cut = Math.max(nl, sp);
-        if (cut > 0) end = cursor + cut;
-      }
-      const chunk = reply.slice(cursor, end).trim();
-      if (chunk) await msg.channel.send(chunk);
-      cursor = end;
+    const chunks = reply.match(/[^]{1,1900}(?=\n|\s|$)/g) || [];
+    for (const chunk of chunks) {
+      await msg.channel.send(chunk.trim());
     }
   } catch (e) {
     console.error(e);
     return msg.channel.send('⚠️ Failed to get AI response.');
   }
 };
+
+// Message listener
+client.on('messageCreate', async msg => {
+  if (msg.author.bot || Date.now() - readyAt < STARTUP_IGNORE) return;
+  const mention = msg.mentions.has(client.user);
+  const cmdMatch = msg.content.match(/^!(\w+)/);
+
+  if (mention && !cmdMatch) return handlePrompt(msg);
+  if (!cmdMatch) return;
+
+  const cmd = cmdMatch[1].toLowerCase();
+  const handler = handlers[cmd];
+  if (handler) return handler(msg);
+  msg.channel.send('❓ Unknown command. See !help.');
+});
 
 // Command Handlers
 const handlers = {
@@ -141,49 +140,65 @@ const handlers = {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) return msg.channel.send('❌ No permission.');
     const count = parseInt(msg.content.split(' ')[1]);
     if (!count || count < 1 || count > 100) return msg.channel.send('⚠️ Provide 1-100.');
-    try { await msg.channel.bulkDelete(count, true); msg.channel.send(`🧹 Deleted ${count} messages.`); }
-    catch(e) { console.error(e); msg.channel.send('❌ Delete failed.'); }
+    try {
+      await msg.channel.bulkDelete(count, true);
+      msg.channel.send(`🧹 Deleted ${count} messages.`);
+    } catch (e) {
+      console.error(e);
+      msg.channel.send('❌ Delete failed.');
+    }
   },
   mute: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
-    const m = msg.mentions.members.first(); if (!m) return msg.channel.send('❌ Mention user.');
-    const role = msg.guild.roles.cache.find(r => r.name === 'Muted'); if (!role) return msg.channel.send('❌ Create "Muted" role.');
-    try { await m.roles.add(role); msg.channel.send(`🔇 ${m.user.tag} muted.`); } catch(e) { console.error(e); msg.channel.send('❌ Mute failed.'); }
+    const m = msg.mentions.members.first();
+    if (!m) return msg.channel.send('❌ Mention user.');
+    const role = msg.guild.roles.cache.find(r => r.name === 'Muted');
+    if (!role) return msg.channel.send('❌ Create "Muted" role.');
+    try {
+      await m.roles.add(role);
+      msg.channel.send(`🔇 ${m.user.tag} muted.`);
+    } catch (e) {
+      console.error(e);
+      msg.channel.send('❌ Mute failed.');
+    }
   },
   warn: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) return msg.channel.send('❌ No permission.');
-    const u = msg.mentions.users.first(); if (!u) return msg.channel.send('❌ Mention user.');
+    const u = msg.mentions.users.first();
+    if (!u) return msg.channel.send('❌ Mention user.');
     msg.channel.send(`⚠️ ${u.tag} warned.`);
   },
   kick: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.KickMembers)) return msg.channel.send('❌ No permission.');
     if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.KickMembers)) return msg.channel.send('❌ Bot lacks permission.');
-    const m = msg.mentions.members.first(); if (!m) return msg.channel.send('❌ Mention user.');
+    const m = msg.mentions.members.first();
+    if (!m) return msg.channel.send('❌ Mention user.');
     if (m.roles.highest.position >= msg.guild.members.me.roles.highest.position) return msg.channel.send('❌ Hierarchy prevents kick.');
-    try { await m.kick(); msg.channel.send(`👢 ${m.user.tag} kicked.`); } catch(e) { console.error(e); msg.channel.send('❌ Kick failed.'); }
+    try {
+      await m.kick();
+      msg.channel.send(`👢 ${m.user.tag} kicked.`);
+    } catch (e) {
+      console.error(e);
+      msg.channel.send('❌ Kick failed.');
+    }
   },
   ban: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.BanMembers)) return msg.channel.send('❌ No permission.');
     if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.BanMembers)) return msg.channel.send('❌ Bot lacks permission.');
-    const m = msg.mentions.members.first(); if (!m) return msg.channel.send('❌ Mention user.');
+    const m = msg.mentions.members.first();
+    if (!m) return msg.channel.send('❌ Mention user.');
     if (m.roles.highest.position >= msg.guild.members.me.roles.highest.position) return msg.channel.send('❌ Hierarchy prevents ban.');
-    try { await m.ban(); msg.channel.send(`🔨 ${m.user.tag} banned.`); } catch(e) { console.error(e); msg.channel.send('❌ Ban failed.'); }
+    try {
+      await m.ban();
+      msg.channel.send(`🔨 ${m.user.tag} banned.`);
+    } catch (e) {
+      console.error(e);
+      msg.channel.send('❌ Ban failed.');
+    }
   },
   restart: msg => delayedRestart(msg, '♻️ Restarting...'),
   hardreset: msg => delayedRestart(msg, '💥 Hardresetting...', 2000),
   check: msg => msg.channel.send('✅ All commands operational.')
 };
-
-// Message listener
-client.on('messageCreate', async msg => {
-  if (msg.author.bot) return;
-  if (Date.now() - readyAt < STARTUP_IGNORE) return;
-  if (msg.mentions.has(client.user) && !msg.content.startsWith('!')) return handlePrompt(msg);
-  if (!msg.content.startsWith('!')) return;
-  const cmd = msg.content.slice(1).split(' ')[0].toLowerCase();
-  const handler = handlers[cmd];
-  if (handler) return handler(msg);
-  msg.channel.send('❓ Unknown command. See !help.');
-});
 
 client.login(TOKEN);
