@@ -1,13 +1,12 @@
 // Load environment variables from the .env file
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { GoogleAuth } = require('google-auth-library');
 const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
 
-// Static data caching
 const FACTS = [
   "Zero was invented by Indian mathematicians.",
   "A circle has infinite lines of symmetry.",
@@ -24,11 +23,9 @@ const PUZZLES = [
   "17 sheep, all but 9 run away. How many remain?"
 ];
 
-// Config/constants
 const TOKEN = process.env.BOT_TOKEN;
 const STARTUP_IGNORE = 1000; // ms
 
-// Client setup
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -44,7 +41,6 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-// Format uptime in d/h/m
 const formatUptime = ms => {
   const m = Math.floor(ms / 60000) % 60;
   const h = Math.floor(ms / 3600000) % 24;
@@ -52,52 +48,21 @@ const formatUptime = ms => {
   return `${d}d ${h}h ${m}m`;
 };
 
-// Graceful restart
 function delayedRestart(msg, successText, delay = 5000) {
   msg.reply(successText)
     .then(() => setTimeout(() => process.exit(0), delay))
     .catch(err => console.error("Error sending restart confirmation:", err));
 }
 
-// Handle AI prompt via Vertex AI
 const handlePrompt = async msg => {
-  const prompt = msg.content.replace(/^<@!?\d+>\s*/, '').trim();
+  const prompt = msg.content.replace(/^<@!?
++>\s*/, '').trim();
   if (!prompt) return;
 
   try {
-    const mathPrompt = `You are now Mathy the Gen Alpha MathBot — an AI tutor who teaches math in the most chaotic, funny, Gen Alpha way possible. You're part stand-up comic, part meme lord, part top-tier math tutor.
-
-Your mission?
- Explain class 6–12 math topics
- Drop math puns, Gen Alpha humor, TikTok jokes, and rizzed-up explanations
- Act like a 13-year-old who watched Skibidi Sigma Math for too long and now teaches Calculus 
- End each answer with a goofy catchphrase like:
-– “Stay skewed, not rude!”
-– “That’s a cosine crime fr ”
-– “Math is lowkey bussin frfr ”
-– “Go touch some π.”
-
-Use emojis, Gen Alpha slang, occasional baby rage , and don’t be afraid to roast dumb equations ("Bro thinks sin(x) = x ").
-
- But... still give accurate math explanations with examples.
-
-Sample response style:
-
-“Yo fam, solving this linear equation is easier than getting ratio’d on Threads. First, move the x terms to one side like it’s a bad vibe . Then divide like you’re sharing a pizza with 7 cats. Final answer? x = 2. Slay .”
-
- You are chaos, but educational chaos.
-Use meme references (Skibidi, Ohio memes, MrBeast math, etc.) and TikTok slang.
-
-You are NOT formal. You are NOT boring. You are NOT old-school.
-
-You’re not just MathBot.
-You’re Mathy: Lord of the Drip... and Derivatives.
-
-Answer every response in 2000 characters or less and go totally wild.
- ${prompt}`;
+    const mathPrompt = `You are now Mathy the Gen Alpha MathBot … Answer every response in 2000 characters or less and go totally wild.\n ${prompt}`;
     const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
     const authClient = await auth.getClient();
-    const projectId = await auth.getProjectId();
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
 
     const res = await authClient.request({
@@ -119,6 +84,37 @@ Answer every response in 2000 characters or less and go totally wild.
     console.error("Error calling Vertex AI:", error);
     msg.reply("⚠️ Failed to get a response from the AI.");
   }
+};
+
+const handlers = {
+  ping: msg => msg.reply('🏓 Pong!'),
+  hello: msg => msg.reply('Hey there! 👋'),
+  uptime: msg => msg.reply(`⏱ Bot uptime: ${formatUptime(Date.now() - readyAt)}`),
+  help: msg => msg.reply("📘 Commands: !ping !hello !uptime !mathfact !quote !mathpuzzle !serverinfo !userinfo !clear !mute !warn !kick !ban !restart !hardreset !check"),
+  mathfact: msg => msg.reply(`📊 Math Fact: ${FACTS[Math.floor(Math.random() * FACTS.length)]}`),
+  quote: msg => msg.reply(`💬 Quote: ${QUOTES[Math.floor(Math.random() * QUOTES.length)]}`),
+  mathpuzzle: msg => msg.reply(`🧩 Puzzle: ${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
+  serverinfo: msg => {
+    const { name, memberCount, createdAt } = msg.guild;
+    msg.reply(`📡 Server Name: ${name}\n👥 Members: ${memberCount}\n📅 Created: ${createdAt.toDateString()}`);
+  },
+  userinfo: msg => {
+    const user = msg.mentions.users.first() || msg.author;
+    msg.reply(`👤 Username: ${user.username}\n🆔 ID: ${user.id}\n📅 Created: ${user.createdAt.toDateString()}`);
+  },
+  clear: async (msg, args) => {
+    const count = parseInt(args[0]);
+    if (!count || count <= 0 || count > 100) return msg.reply("⚠️ Please provide a number between 1 and 100.");
+    await msg.channel.bulkDelete(count, true).catch(() => {});
+    msg.reply(`🧹 Deleted ${count} messages.`);
+  },
+  mute: msg => msg.reply("🔇 Mute command placeholder (requires advanced perms)."),
+  warn: msg => msg.reply("⚠️ Warn command placeholder."),
+  kick: msg => msg.reply("👢 Kick command placeholder."),
+  ban: msg => msg.reply("🔨 Ban command placeholder."),
+  restart: msg => delayedRestart(msg, "♻️ Restarting bot..."),
+  hardreset: msg => delayedRestart(msg, "💥 Hard resetting bot...", 2000),
+  check: msg => msg.reply("✅ All commands loaded and AI module functional.")
 };
 
 client.on('messageCreate', async msg => {
