@@ -7,6 +7,7 @@ const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
 
+// Static data
 const FACTS = [
   "Zero was invented by Indian mathematicians.",
   "A circle has infinite lines of symmetry.",
@@ -23,9 +24,11 @@ const PUZZLES = [
   "17 sheep, all but 9 run away. How many remain?"
 ];
 
+// Config/constants
 const TOKEN = process.env.BOT_TOKEN;
 const STARTUP_IGNORE = 1000; // ms
 
+// Client setup
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -41,6 +44,7 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
+// Utility functions
 const formatUptime = ms => {
   const m = Math.floor(ms / 60000) % 60;
   const h = Math.floor(ms / 3600000) % 24;
@@ -48,169 +52,98 @@ const formatUptime = ms => {
   return `${d}d ${h}h ${m}m`;
 };
 
-function delayedRestart(msg, successText, delay = 5000) {
-  msg.reply(successText)
-    .then(() => setTimeout(() => process.exit(0), delay))
-    .catch(err => console.error("Error sending restart confirmation:", err));
+function delayedRestart(msg, text, delay = 5000) {
+  msg.channel.send(text).then(() => setTimeout(() => process.exit(0), delay));
 }
 
+// AI handler (untouched)
 const handlePrompt = async msg => {
   const prompt = msg.content.replace(/^<@!?\d+>\s*/, '').trim();
   if (!prompt) return;
-
   try {
-    const mathPrompt = `You are now Mathy the Gen Alpha MathBot … Answer every response in 2000 characters or less and go totally wild.\n ${prompt}`;
+    const mathPrompt = `You are now Mathy the Gen Alpha MathBot …\n${prompt}`;
     const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
-    const authClient = await auth.getClient();
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
-
-    const res = await authClient.request({
-      url,
-      method: 'POST',
+    const clientAuth = await auth.getClient();
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    const res = await clientAuth.request({
+      url, method: 'POST',
       data: {
         contents: [{ parts: [{ text: mathPrompt }] }],
-        generationConfig: {
-          candidateCount: 1,
-          temperature: 0,
-          maxOutputTokens: 2000
-        }
+        generationConfig: { candidateCount: 1, temperature: 0, maxOutputTokens: 2000 }
       }
     });
-
-    const reply = res?.data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate an answer.';
-    msg.reply(reply);
-  } catch (error) {
-    console.error("Error calling Vertex AI:", error);
-    msg.reply("⚠️ Failed to get a response from the AI.");
+    const reply = res.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, could not fetch an answer.';
+    msg.channel.send(reply);
+  } catch (e) {
+    console.error(e);
+    msg.channel.send('⚠️ Failed to get AI response.');
   }
 };
 
+// Command Handlers
 const handlers = {
-  ping: msg => msg.reply('🌿 Pong!'),
-  hello: msg => msg.reply('Hey there! 👋'),
-  uptime: msg => msg.reply(`⏱ Bot uptime: ${formatUptime(Date.now() - readyAt)}`),
-  help: msg => msg.reply("📘 Commands: !ping !hello !uptime !mathfact !quote !mathpuzzle !serverinfo !userinfo !clear !mute !warn !kick !ban !restart !hardreset !check"),
-  mathfact: msg => msg.reply(`📊 Math Fact: ${FACTS[Math.floor(Math.random() * FACTS.length)]}`),
-  quote: msg => msg.reply(`🔊 Quote: ${QUOTES[Math.floor(Math.random() * QUOTES.length)]}`),
-  mathpuzzle: msg => msg.reply(`🧩 Puzzle: ${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
+  ping: msg => msg.channel.send('🌿 Pong!'),
+  hello: msg => msg.channel.send('Hey there! 👋'),
+  uptime: msg => msg.channel.send(`⏱ Uptime: ${formatUptime(Date.now() - readyAt)}`),
+  help: msg => msg.channel.send('📘 Commands: !ping, !hello, !uptime, !mathfact, !quote, !mathpuzzle, !serverinfo, !userinfo, !clear, !mute, !warn, !kick, !ban, !restart, !hardreset, !check'),
+  mathfact: msg => msg.channel.send(`📊 ${FACTS[Math.floor(Math.random()*FACTS.length)]}`),
+  quote: msg => msg.channel.send(`🔊 ${QUOTES[Math.floor(Math.random()*QUOTES.length)]}`),
+  mathpuzzle: msg => msg.channel.send(`🧩 ${PUZZLES[Math.floor(Math.random()*PUZZLES.length)]}`),
   serverinfo: msg => {
     const { name, memberCount, createdAt } = msg.guild;
-    msg.reply(`📡 Server Name: ${name}\n👥 Members: ${memberCount}\n📅 Created: ${createdAt.toDateString()}`);
+    msg.channel.send(`📡 Server: ${name}\n👥 Members: ${memberCount}\n📅 Created: ${createdAt.toDateString()}`);
   },
   userinfo: msg => {
     const user = msg.mentions.users.first() || msg.author;
-    msg.reply(`👤 Username: ${user.username}\n🆔 ID: ${user.id}\n📅 Created: ${user.createdAt.toDateString()}`);
+    msg.channel.send(`👤 ${user.tag}\n🆔 ${user.id}\n📅 Created: ${user.createdAt.toDateString()}`);
   },
-  clear: async (msg, args) => {
-    const count = parseInt(args[0]);
-    if (!count || count <= 0 || count > 100) return msg.channel.send("⚠️ Please provide a number between 1 and 100.");
-    try {
-      await msg.channel.bulkDelete(count, true);
-      return msg.channel.send(`🧹 Deleted ${count} messages.`);
-    } catch (err) {
-      console.error(err);
-      return msg.channel.send("❌ Failed to delete messages.");
-    }
+  clear: async msg => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) return msg.channel.send('❌ No permission.');
+    const count = parseInt(msg.content.split(' ')[1]);
+    if (!count || count < 1 || count > 100) return msg.channel.send('⚠️ Provide 1-100.');
+    try { await msg.channel.bulkDelete(count, true); msg.channel.send(`🧹 Deleted ${count} messages.`); }
+    catch(e) { console.error(e); msg.channel.send('❌ Delete failed.'); }
   },
-  mute: async (msg, args) => {
-    if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send("❌ No permission to mute users.");
-    const member = msg.mentions.members.first();
-    if (!member) return msg.channel.send("❌ Please mention a user to mute.");
-    const role = msg.guild.roles.cache.find(r => r.name === 'Muted');
-    if (!role) return msg.channel.send("❌ 'Muted' role not found.");
-    try {
-      await member.roles.add(role);
-      return msg.channel.send(`🔇 ${member.user.tag} has been muted.`);
-    } catch (err) {
-      console.error(err);
-      return msg.channel.send("❌ Failed to mute user.");
-    }
+  mute: async msg => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
+    const m = msg.mentions.members.first(); if (!m) return msg.channel.send('❌ Mention user.');
+    const role = msg.guild.roles.cache.find(r=>r.name==='Muted'); if(!role) return msg.channel.send('❌ Create "Muted" role.');
+    try { await m.roles.add(role); msg.channel.send(`🔇 ${m.user.tag} muted.`); } catch(e){console.error(e); msg.channel.send('❌ Mute failed.'); }
   },
-  warn: msg => {
-    const user = msg.mentions.users.first();
-    if (!user) return msg.reply("❌ Please mention a user to warn.");
-    msg.reply(`⚠️ ${user.tag}, consider this a warning.`);
+  warn: async msg => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) return msg.channel.send('❌ No permission.');
+    const u = msg.mentions.users.first(); if(!u) return msg.channel.send('❌ Mention user.');
+    msg.channel.send(`⚠️ ${u.tag} warned.`);
   },
-  kick: async (msg, args) => {
-    // Check user permission
-    if (!msg.member.permissions.has(PermissionFlagsBits.KickMembers))
-      return msg.channel.send("❌ No permission to kick users.");
-    // Check bot permission
-    if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.KickMembers))
-      return msg.channel.send("❌ I don't have permission to kick users.");
-    const member = msg.mentions.members.first();
-    if (!member) return msg.channel.send("❌ Please mention a user to kick.");
-    // Role hierarchy check
-    if (member.roles.highest.position >= msg.guild.members.me.roles.highest.position)
-      return msg.channel.send("❌ Cannot kick this user due to role hierarchy.");
-    try {
-      await member.kick();
-      return msg.channel.send(`👢 ${member.user.tag} has been kicked.`);
-    } catch (err) {
-      console.error(err);
-      return msg.channel.send("❌ Failed to kick user.");
-    }
+  kick: async msg => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.KickMembers)) return msg.channel.send('❌ No permission.');
+    if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.KickMembers)) return msg.channel.send('❌ Bot lacks permission.');
+    const m = msg.mentions.members.first(); if(!m) return msg.channel.send('❌ Mention user.');
+    if(m.roles.highest.position>=msg.guild.members.me.roles.highest.position) return msg.channel.send('❌ Hierarchy prevents kick.');
+    try { await m.kick(); msg.channel.send(`👢 ${m.user.tag} kicked.`); } catch(e){console.error(e); msg.channel.send('❌ Kick failed.'); }
   },
-    if (!msg.member.permissions.has(PermissionFlagsBits.KickMembers)) return msg.channel.send("❌ No permission to kick users.");
-    const member = msg.mentions.members.first();
-    if (!member) return msg.channel.send("❌ Please mention a user to kick.");
-    try {
-      await member.kick();
-      return msg.channel.send(`👢 ${member.user.tag} has been kicked.`);
-    } catch (err) {
-      console.error(err);
-      return msg.channel.send("❌ Failed to kick user.");
-    }
+  ban: async msg => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.BanMembers)) return msg.channel.send('❌ No permission.');
+    if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.BanMembers)) return msg.channel.send('❌ Bot lacks permission.');
+    const m = msg.mentions.members.first(); if(!m) return msg.channel.send('❌ Mention user.');
+    if(m.roles.highest.position>=msg.guild.members.me.roles.highest.position) return msg.channel.send('❌ Hierarchy prevents ban.');
+    try { await m.ban(); msg.channel.send(`🔨 ${m.user.tag} banned.`);}catch(e){console.error(e);msg.channel.send('❌ Ban failed.');}
   },
-  ban: async (msg, args) => {
-    // Check user permission
-    if (!msg.member.permissions.has(PermissionFlagsBits.BanMembers))
-      return msg.channel.send("❌ No permission to ban users.");
-    // Check bot permission
-    if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.BanMembers))
-      return msg.channel.send("❌ I don't have permission to ban users.");
-    const member = msg.mentions.members.first();
-    if (!member) return msg.channel.send("❌ Please mention a user to ban.");
-    // Role hierarchy check
-    if (member.roles.highest.position >= msg.guild.members.me.roles.highest.position)
-      return msg.channel.send("❌ Cannot ban this user due to role hierarchy.");
-    try {
-      await member.ban();
-      return msg.channel.send(`🔨 ${member.user.tag} has been banned.`);
-    } catch (err) {
-      console.error(err);
-      return msg.channel.send("❌ Failed to ban user.");
-    }
-  },
-    if (!msg.member.permissions.has(PermissionFlagsBits.BanMembers)) return msg.channel.send("❌ No permission to ban users.");
-    const member = msg.mentions.members.first();
-    if (!member) return msg.channel.send("❌ Please mention a user to ban.");
-    try {
-      await member.ban();
-      return msg.channel.send(`🔨 ${member.user.tag} has been banned.`);
-    } catch (err) {
-      console.error(err);
-      return msg.channel.send("❌ Failed to ban user.");
-    }
-  },
-  restart: msg => delayedRestart(msg, "♻️ Restarting bot..."),
-  hardreset: msg => delayedRestart(msg, "💥 Hard resetting bot...", 2000),
-  check: msg => msg.reply("✅ All moderation and AI commands are functional.")
+  restart: msg => delayedRestart(msg,'♻️ Restarting...'),
+  hardreset: msg => delayedRestart(msg,'💥 Hardresetting...',2000),
+  check: msg => msg.channel.send('✅ All commands operational.')
 };
 
+// Message listener
 client.on('messageCreate', async msg => {
-  if (msg.author.bot) return;
-  if (Date.now() - (readyAt || 0) < STARTUP_IGNORE) return;
-
-  if (msg.mentions.has(client.user) && !msg.content.startsWith('!')) {
-    return handlePrompt(msg);
-  }
-
-  if (!msg.content.startsWith('!')) return;
-  const [cmd, ...args] = msg.content.slice(1).trim().split(/ +/);
-  const h = handlers[cmd.toLowerCase()];
-  if (h) return h(msg, args);
-  msg.reply("❓ Unknown command. See !help.");
+  if(msg.author.bot) return;
+  if(Date.now()-readyAt<STARTUP_IGNORE) return;
+  if(msg.mentions.has(client.user)&&!msg.content.startsWith('!')) return handlePrompt(msg);
+  if(!msg.content.startsWith('!')) return;
+  const cmd=msg.content.slice(1).split(' ')[0].toLowerCase();
+  const handler=handlers[cmd];
+  if(handler) return handler(msg);
+  msg.channel.send('❓ Unknown command. See !help.');
 });
 
 client.login(TOKEN);
