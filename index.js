@@ -103,34 +103,57 @@ const handlers = {
   },
   clear: async (msg, args) => {
     const count = parseInt(args[0]);
-    if (!count || count <= 0 || count > 100) return msg.reply("⚠️ Please provide a number between 1 and 100.");
-    await msg.channel.bulkDelete(count, true).catch(() => {});
-    msg.reply(`🧹 Deleted ${count} messages.`);
+    if (!count || count <= 0 || count > 100) return msg.channel.send("⚠️ Please provide a number between 1 and 100.");
+    try {
+      await msg.channel.bulkDelete(count, true);
+      return msg.channel.send(`🧹 Deleted ${count} messages.`);
+    } catch (err) {
+      console.error(err);
+      return msg.channel.send("❌ Failed to delete messages.");
+    }
   },
-  mute: async msg => {
+  mute: async (msg, args) => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send("❌ No permission to mute users.");
     const member = msg.mentions.members.first();
-    if (!member) return msg.reply("❌ Please mention a user to mute.");
+    if (!member) return msg.channel.send("❌ Please mention a user to mute.");
     const role = msg.guild.roles.cache.find(r => r.name === 'Muted');
-    if (!role) return msg.reply("❌ 'Muted' role not found.");
-    await member.roles.add(role).catch(() => msg.reply("❌ Failed to mute user."));
-    msg.reply(`🔇 ${member.user.tag} has been muted.`);
+    if (!role) return msg.channel.send("❌ 'Muted' role not found.");
+    try {
+      await member.roles.add(role);
+      return msg.channel.send(`🔇 ${member.user.tag} has been muted.`);
+    } catch (err) {
+      console.error(err);
+      return msg.channel.send("❌ Failed to mute user.");
+    }
   },
   warn: msg => {
     const user = msg.mentions.users.first();
     if (!user) return msg.reply("❌ Please mention a user to warn.");
     msg.reply(`⚠️ ${user.tag}, consider this a warning.`);
   },
-  kick: async msg => {
+  kick: async (msg, args) => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.KickMembers)) return msg.channel.send("❌ No permission to kick users.");
     const member = msg.mentions.members.first();
-    if (!member) return msg.reply("❌ Please mention a user to kick.");
-    await member.kick().catch(() => msg.reply("❌ Failed to kick user."));
-    msg.reply(`👢 ${member.user.tag} has been kicked.`);
+    if (!member) return msg.channel.send("❌ Please mention a user to kick.");
+    try {
+      await member.kick();
+      return msg.channel.send(`👢 ${member.user.tag} has been kicked.`);
+    } catch (err) {
+      console.error(err);
+      return msg.channel.send("❌ Failed to kick user.");
+    }
   },
-  ban: async msg => {
+  ban: async (msg, args) => {
+    if (!msg.member.permissions.has(PermissionFlagsBits.BanMembers)) return msg.channel.send("❌ No permission to ban users.");
     const member = msg.mentions.members.first();
-    if (!member) return msg.reply("❌ Please mention a user to ban.");
-    await member.ban().catch(() => msg.reply("❌ Failed to ban user."));
-    msg.reply(`🔨 ${member.user.tag} has been banned.`);
+    if (!member) return msg.channel.send("❌ Please mention a user to ban.");
+    try {
+      await member.ban();
+      return msg.channel.send(`🔨 ${member.user.tag} has been banned.`);
+    } catch (err) {
+      console.error(err);
+      return msg.channel.send("❌ Failed to ban user.");
+    }
   },
   restart: msg => delayedRestart(msg, "♻️ Restarting bot..."),
   hardreset: msg => delayedRestart(msg, "💥 Hard resetting bot...", 2000),
