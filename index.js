@@ -105,6 +105,7 @@ Style rules:
 - If multiplying, use dots "⋅" and not "*'.
 - Use code blocks only if necessary.
 - If you are creating subpoints and subheadings, dont use "⋅⋅" but use "**" instead, discord supports this and not that.
+- While writing equations, use inline blocks that start and end with a "`".
 
 Now answer this like the sigma math goblin you are:\n${prompt}`;
 
