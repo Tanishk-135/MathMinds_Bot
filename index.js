@@ -58,7 +58,7 @@ function delayedRestart(msg, text, delay = 5000) {
 
 function formatMathText(text) {
   return text
-    .replace(/(\d)\^(\d)/g, (_, base, exp) => base + toSuperscript(exp))
+    .replace(/(\d)\^(\d+)/g, (_, base, exp) => base + toSuperscript(exp))
     .replace(/\bsqrt\(([^)]+)\)/g, '√$1')
     .replace(/\bpi\b/gi, 'π')
     .replace(/\btheta\b/gi, 'θ')
@@ -76,12 +76,11 @@ function toSuperscript(num) {
 // AI handler (mention-based prompt)
 const handlePrompt = async msg => {
   // Strip bot mention using ID
-  const mentionRegex = new RegExp(`^<@!?${client.user.id}>\s*`);
+  const mentionRegex = new RegExp(`^<@!?${client.user.id}>\\s*`);
   const prompt = msg.content.replace(mentionRegex, '').trim();
   if (!prompt) return;
   try {
-    const mathPrompt = `You are now Mathy the Gen Alpha MathBot …
-${prompt}`;
+    const mathPrompt = `You are now Mathy the Gen Alpha MathBot …\n${prompt}`;
     const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
     const clientAuth = await auth.getClient();
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
@@ -96,8 +95,12 @@ ${prompt}`;
     let reply = res.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, could not fetch an answer.';
     // Format math and superscripts
     reply = formatMathText(reply);
-    // Send as plain formatted text (no code block)
-    return msg.channel.send(reply);
+
+    // Split into chunks of <=2000 characters and send sequentially
+    const chunks = reply.match(/([\s\S]{1,2000})/g) || [];
+    for (const chunk of chunks) {
+      await msg.channel.send(chunk);
+    }
   } catch (e) {
     console.error(e);
     return msg.channel.send('⚠️ Failed to get AI response.');
@@ -131,42 +134,42 @@ const handlers = {
   mute: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
     const m = msg.mentions.members.first(); if (!m) return msg.channel.send('❌ Mention user.');
-    const role = msg.guild.roles.cache.find(r=>r.name==='Muted'); if(!role) return msg.channel.send('❌ Create "Muted" role.');
-    try { await m.roles.add(role); msg.channel.send(`🔇 ${m.user.tag} muted.`); } catch(e){console.error(e); msg.channel.send('❌ Mute failed.'); }
+    const role = msg.guild.roles.cache.find(r => r.name === 'Muted'); if (!role) return msg.channel.send('❌ Create "Muted" role.');
+    try { await m.roles.add(role); msg.channel.send(`🔇 ${m.user.tag} muted.`); } catch(e) { console.error(e); msg.channel.send('❌ Mute failed.'); }
   },
   warn: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) return msg.channel.send('❌ No permission.');
-    const u = msg.mentions.users.first(); if(!u) return msg.channel.send('❌ Mention user.');
+    const u = msg.mentions.users.first(); if (!u) return msg.channel.send('❌ Mention user.');
     msg.channel.send(`⚠️ ${u.tag} warned.`);
   },
   kick: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.KickMembers)) return msg.channel.send('❌ No permission.');
     if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.KickMembers)) return msg.channel.send('❌ Bot lacks permission.');
-    const m = msg.mentions.members.first(); if(!m) return msg.channel.send('❌ Mention user.');
-    if(m.roles.highest.position>=msg.guild.members.me.roles.highest.position) return msg.channel.send('❌ Hierarchy prevents kick.');
-    try { await m.kick(); msg.channel.send(`👢 ${m.user.tag} kicked.`); } catch(e){console.error(e); msg.channel.send('❌ Kick failed.'); }
+    const m = msg.mentions.members.first(); if (!m) return msg.channel.send('❌ Mention user.');
+    if (m.roles.highest.position >= msg.guild.members.me.roles.highest.position) return msg.channel.send('❌ Hierarchy prevents kick.');
+    try { await m.kick(); msg.channel.send(`👢 ${m.user.tag} kicked.`); } catch(e) { console.error(e); msg.channel.send('❌ Kick failed.'); }
   },
   ban: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.BanMembers)) return msg.channel.send('❌ No permission.');
     if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.BanMembers)) return msg.channel.send('❌ Bot lacks permission.');
-    const m = msg.mentions.members.first(); if(!m) return msg.channel.send('❌ Mention user.');
-    if(m.roles.highest.position>=msg.guild.members.me.roles.highest.position) return msg.channel.send('❌ Hierarchy prevents ban.');
-    try { await m.ban(); msg.channel.send(`🔨 ${m.user.tag} banned.`);}catch(e){console.error(e);msg.channel.send('❌ Ban failed.');}
+    const m = msg.mentions.members.first(); if (!m) return msg.channel.send('❌ Mention user.');
+    if (m.roles.highest.position >= msg.guild.members.me.roles.highest.position) return msg.channel.send('❌ Hierarchy prevents ban.');
+    try { await m.ban(); msg.channel.send(`🔨 ${m.user.tag} banned.`); } catch(e) { console.error(e); msg.channel.send('❌ Ban failed.'); }
   },
-  restart: msg => delayedRestart(msg,'♻️ Restarting...'),
-  hardreset: msg => delayedRestart(msg,'💥 Hardresetting...',2000),
+  restart: msg => delayedRestart(msg, '♻️ Restarting...'),
+  hardreset: msg => delayedRestart(msg, '💥 Hardresetting...', 2000),
   check: msg => msg.channel.send('✅ All commands operational.')
 };
 
 // Message listener
 client.on('messageCreate', async msg => {
-  if(msg.author.bot) return;
-  if(Date.now()-readyAt<STARTUP_IGNORE) return;
-  if(msg.mentions.has(client.user)&&!msg.content.startsWith('!')) return handlePrompt(msg);
-  if(!msg.content.startsWith('!')) return;
-  const cmd=msg.content.slice(1).split(' ')[0].toLowerCase();
-  const handler=handlers[cmd];
-  if(handler) return handler(msg);
+  if (msg.author.bot) return;
+  if (Date.now() - readyAt < STARTUP_IGNORE) return;
+  if (msg.mentions.has(client.user) && !msg.content.startsWith('!')) return handlePrompt(msg);
+  if (!msg.content.startsWith('!')) return;
+  const cmd = msg.content.slice(1).split(' ')[0].toLowerCase();
+  const handler = handlers[cmd];
+  if (handler) return handler(msg);
   msg.channel.send('❓ Unknown command. See !help.');
 });
 
