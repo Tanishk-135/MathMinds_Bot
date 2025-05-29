@@ -7,23 +7,6 @@ const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
 
-// Static data
-const FACTS = [
-  "Zero was invented by Indian mathematicians.",
-  "A circle has infinite lines of symmetry.",
-  "Euler's identity: e^(iπ) + 1 = 0."
-];
-const QUOTES = [
-  "Mathematics is the language… - Galileo",
-  "Pure mathematics is…the poetry of logical ideas. - Einstein",
-  "Do not worry about your difficulties… - Einstein"
-];
-const PUZZLES = [
-  "I am a 3-digit number. Tens = ones + 5; hundreds = tens – 8.",
-  "Next in sequence: 1, 4, 9, 16, 25, __?",
-  "17 sheep, all but 9 run away. How many remain?"
-];
-
 // Config/constants
 const TOKEN = process.env.BOT_TOKEN;
 const STARTUP_IGNORE = 1000; // ms
@@ -62,7 +45,6 @@ const formatMathText = text => {
     .replace(/\bsqrt\(([^)]+)\)/g, '√$1')
     .replace(/\bpi\b/gi, 'π')
     .replace(/\btheta\b/gi, 'θ')
-    // Try the flexible regex:
     .replace(/(?:[⋅·]){2}\s*(.*?)\s*(?:[⋅·]){2}/gu, '**$1**');
 };
 
@@ -107,7 +89,7 @@ Style rules:
 - If you are creating subpoints and subheadings, dont use "⋅⋅" but use "**" instead, discord supports this and not that.
 - While writing equations, use inline blocks.
 
-Now answer this like the sigma math goblin you are:\n${prompt}`;
+Now answer this like the Sigma math goblin you are:\n${prompt}`;
 
     const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
     const clientAuth = await auth.getClient();
@@ -158,9 +140,6 @@ const handlers = {
   hello: msg => msg.channel.send('Hey there! 👋'),
   uptime: msg => msg.channel.send(`⏱ Uptime: ${formatUptime(Date.now() - readyAt)}`),
   help: msg => msg.channel.send('📘 Commands: !ping, !hello, !uptime, !mathfact, !quote, !mathpuzzle, !serverinfo, !userinfo, !clear, !mute, !warn, !kick, !ban, !restart, !hardreset, !check'),
-  mathfact: msg => msg.channel.send(`📊 ${FACTS[Math.floor(Math.random()*FACTS.length)]}`),
-  quote: msg => msg.channel.send(`🔊 ${QUOTES[Math.floor(Math.random()*QUOTES.length)]}`),
-  mathpuzzle: msg => msg.channel.send(`🧩 ${PUZZLES[Math.floor(Math.random()*PUZZLES.length)]}`),
   serverinfo: msg => {
     const { name, memberCount, createdAt } = msg.guild;
     msg.channel.send(`📡 Server: ${name}\n👥 Members: ${memberCount}\n📅 Created: ${createdAt.toDateString()}`);
