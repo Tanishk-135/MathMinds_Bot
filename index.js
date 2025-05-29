@@ -6,8 +6,6 @@ const { GoogleAuth } = require('google-auth-library');
 const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
-const testStr = "⋅⋅Hello World⋅⋅";
-console.log(testStr.replace(/⋅⋅\s*(.*?)\s*⋅⋅/gu, '**$1**')); // Expect: **Hello World**
 
 // Static data
 const FACTS = [
