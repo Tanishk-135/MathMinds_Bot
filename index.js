@@ -139,7 +139,11 @@ client.on('messageCreate', async msg => {
   const mention = msg.mentions.has(client.user);
   const cmdMatch = msg.content.match(/^!(\w+)/);
 
-  if (mention && !cmdMatch) return handlePrompt(msg);
+  if (mention && !cmdMatch) {
+    console.log(`AI Activated | Time: ${new Date().toLocaleString()}`);
+    return handlePrompt(msg);
+  }
+
   if (!cmdMatch) return;
 
   const cmd = cmdMatch[1].toLowerCase();
