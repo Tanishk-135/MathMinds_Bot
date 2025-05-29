@@ -62,7 +62,7 @@ function formatMathText(text) {
     .replace(/\bsqrt\(([^)]+)\)/g, '√$1')
     .replace(/\bpi\b/gi, 'π')
     .replace(/\btheta\b/gi, 'θ')
-    .replace(/\u22C5\u22C5(.*?)\u22C5\u22C5/gu, '**$1**');
+    .replace(/⋅⋅\s*(.*?)\s*⋅⋅/gu, '**$1**');
 }
 
 function toSuperscript(num) {
