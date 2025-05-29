@@ -10,7 +10,7 @@ const execPromise = util.promisify(exec);
 const FACTS = [
   "Zero was invented by Indian mathematicians.",
   "A circle has infinite lines of symmetry.",
-  "Euler's identity: e^(iπ) + 1 = 0."
+  "Euler's identity: e^(i\u03c0) + 1 = 0."
 ];
 const QUOTES = [
   "Mathematics is the language… - Galileo",
@@ -55,7 +55,7 @@ function delayedRestart(msg, successText, delay = 5000) {
 }
 
 const handlePrompt = async msg => {
-  const prompt = msg.content.replace(/^<@!?+>\s*/, '').trim();
+  const prompt = msg.content.replace(/^<@!?\d+>\s*/, '').trim();
   if (!prompt) return;
 
   try {
@@ -86,12 +86,12 @@ const handlePrompt = async msg => {
 };
 
 const handlers = {
-  ping: msg => msg.reply('🏓 Pong!'),
+  ping: msg => msg.reply('🌿 Pong!'),
   hello: msg => msg.reply('Hey there! 👋'),
   uptime: msg => msg.reply(`⏱ Bot uptime: ${formatUptime(Date.now() - readyAt)}`),
   help: msg => msg.reply("📘 Commands: !ping !hello !uptime !mathfact !quote !mathpuzzle !serverinfo !userinfo !clear !mute !warn !kick !ban !restart !hardreset !check"),
   mathfact: msg => msg.reply(`📊 Math Fact: ${FACTS[Math.floor(Math.random() * FACTS.length)]}`),
-  quote: msg => msg.reply(`💬 Quote: ${QUOTES[Math.floor(Math.random() * QUOTES.length)]}`),
+  quote: msg => msg.reply(`🔊 Quote: ${QUOTES[Math.floor(Math.random() * QUOTES.length)]}`),
   mathpuzzle: msg => msg.reply(`🧩 Puzzle: ${PUZZLES[Math.floor(Math.random() * PUZZLES.length)]}`),
   serverinfo: msg => {
     const { name, memberCount, createdAt } = msg.guild;
