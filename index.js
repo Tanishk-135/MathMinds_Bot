@@ -96,10 +96,23 @@ const handlePrompt = async msg => {
     // Format math and superscripts
     reply = formatMathText(reply);
 
-    // Split into chunks of <=2000 characters and send sequentially
-    const chunks = reply.match(/([\s\S]{1,2000})/g) || [];
-    for (const chunk of chunks) {
-      await msg.channel.send(chunk);
+    // Split into chunks of <=2000 characters without breaking words
+    const maxLen = 2000;
+    let cursor = 0;
+    while (cursor < reply.length) {
+      let end = Math.min(cursor + maxLen, reply.length);
+      // Try to cut at last newline or space
+      if (end < reply.length) {
+        const substr = reply.slice(cursor, end);
+        const nl = substr.lastIndexOf('
+');
+        const sp = substr.lastIndexOf(' ');
+        const cut = Math.max(nl, sp);
+        if (cut > 0) end = cursor + cut;
+      }
+      const chunk = reply.slice(cursor, end).trim();
+      if (chunk) await msg.channel.send(chunk);
+      cursor = end;
     }
   } catch (e) {
     console.error(e);
