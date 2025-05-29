@@ -61,7 +61,8 @@ function formatMathText(text) {
     .replace(/(\d)\^(\d+)/g, (_, base, exp) => base + toSuperscript(exp))
     .replace(/\bsqrt\(([^)]+)\)/g, '√$1')
     .replace(/\bpi\b/gi, 'π')
-    .replace(/\btheta\b/gi, 'θ');
+    .replace(/\btheta\b/gi, 'θ')
+    .replace(/⋅⋅(.*?)⋅⋅/g, '**$1**'); 
 }
 
 function toSuperscript(num) {
