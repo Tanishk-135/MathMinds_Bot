@@ -61,8 +61,7 @@ function formatMathText(text) {
     .replace(/(\d)\^(\d+)/g, (_, base, exp) => base + toSuperscript(exp))
     .replace(/\bsqrt\(([^)]+)\)/g, '√$1')
     .replace(/\bpi\b/gi, 'π')
-    .replace(/\btheta\b/gi, 'θ')
-    .replace(/\*/g, '⋅');
+    .replace(/\btheta\b/gi, 'θ');
 }
 
 function toSuperscript(num) {
@@ -91,12 +90,14 @@ Your job:
 – "That’s a cosine crime fr 😤"
 – "Stay skewed, not rude 📐"
 – "Math is lowkey bussin frfr 📈"
+- You can also create your own
 
 Style rules:
 – Roast dumb math: "Bro thinks sin(x) = x 💀"
-– Use Discord formatting: **bold**, \`inline code\`, and \`\`\`code blocks\`\`\`
+– Use Discord formatting: **bold**, \`inline code\`, and \`\`\`code blocks\`\`\` use these in your format as discord only supports this and your messages are going to discord.
 – Use emojis, TikTok slang, baby rage, and MrBeast-level energy
 – NEVER be formal. NEVER be dry. NEVER be a textbook.
+- If multiplying, use dots "⋅" and not "*'.
 
 Now answer this like the sigma math goblin you are:\n${prompt}`;
 
