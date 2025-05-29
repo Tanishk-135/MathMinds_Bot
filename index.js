@@ -10,7 +10,7 @@ const execPromise = util.promisify(exec);
 const FACTS = [
   "Zero was invented by Indian mathematicians.",
   "A circle has infinite lines of symmetry.",
-  "Euler's identity: e^(i\u03c0) + 1 = 0."
+  "Euler's identity: e^(iπ) + 1 = 0."
 ];
 const QUOTES = [
   "Mathematics is the language… - Galileo",
@@ -107,13 +107,34 @@ const handlers = {
     await msg.channel.bulkDelete(count, true).catch(() => {});
     msg.reply(`🧹 Deleted ${count} messages.`);
   },
-  mute: msg => msg.reply("🔇 Mute command placeholder (requires advanced perms)."),
-  warn: msg => msg.reply("⚠️ Warn command placeholder."),
-  kick: msg => msg.reply("👢 Kick command placeholder."),
-  ban: msg => msg.reply("🔨 Ban command placeholder."),
+  mute: async msg => {
+    const member = msg.mentions.members.first();
+    if (!member) return msg.reply("❌ Please mention a user to mute.");
+    const role = msg.guild.roles.cache.find(r => r.name === 'Muted');
+    if (!role) return msg.reply("❌ 'Muted' role not found.");
+    await member.roles.add(role).catch(() => msg.reply("❌ Failed to mute user."));
+    msg.reply(`🔇 ${member.user.tag} has been muted.`);
+  },
+  warn: msg => {
+    const user = msg.mentions.users.first();
+    if (!user) return msg.reply("❌ Please mention a user to warn.");
+    msg.reply(`⚠️ ${user.tag}, consider this a warning.`);
+  },
+  kick: async msg => {
+    const member = msg.mentions.members.first();
+    if (!member) return msg.reply("❌ Please mention a user to kick.");
+    await member.kick().catch(() => msg.reply("❌ Failed to kick user."));
+    msg.reply(`👢 ${member.user.tag} has been kicked.`);
+  },
+  ban: async msg => {
+    const member = msg.mentions.members.first();
+    if (!member) return msg.reply("❌ Please mention a user to ban.");
+    await member.ban().catch(() => msg.reply("❌ Failed to ban user."));
+    msg.reply(`🔨 ${member.user.tag} has been banned.`);
+  },
   restart: msg => delayedRestart(msg, "♻️ Restarting bot..."),
   hardreset: msg => delayedRestart(msg, "💥 Hard resetting bot...", 2000),
-  check: msg => msg.reply("✅ All commands loaded and AI module functional.")
+  check: msg => msg.reply("✅ All moderation and AI commands are functional.")
 };
 
 client.on('messageCreate', async msg => {
