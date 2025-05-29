@@ -132,6 +132,25 @@ const handlers = {
     msg.reply(`⚠️ ${user.tag}, consider this a warning.`);
   },
   kick: async (msg, args) => {
+    // Check user permission
+    if (!msg.member.permissions.has(PermissionFlagsBits.KickMembers))
+      return msg.channel.send("❌ No permission to kick users.");
+    // Check bot permission
+    if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.KickMembers))
+      return msg.channel.send("❌ I don't have permission to kick users.");
+    const member = msg.mentions.members.first();
+    if (!member) return msg.channel.send("❌ Please mention a user to kick.");
+    // Role hierarchy check
+    if (member.roles.highest.position >= msg.guild.members.me.roles.highest.position)
+      return msg.channel.send("❌ Cannot kick this user due to role hierarchy.");
+    try {
+      await member.kick();
+      return msg.channel.send(`👢 ${member.user.tag} has been kicked.`);
+    } catch (err) {
+      console.error(err);
+      return msg.channel.send("❌ Failed to kick user.");
+    }
+  },
     if (!msg.member.permissions.has(PermissionFlagsBits.KickMembers)) return msg.channel.send("❌ No permission to kick users.");
     const member = msg.mentions.members.first();
     if (!member) return msg.channel.send("❌ Please mention a user to kick.");
@@ -144,6 +163,25 @@ const handlers = {
     }
   },
   ban: async (msg, args) => {
+    // Check user permission
+    if (!msg.member.permissions.has(PermissionFlagsBits.BanMembers))
+      return msg.channel.send("❌ No permission to ban users.");
+    // Check bot permission
+    if (!msg.guild.members.me.permissions.has(PermissionFlagsBits.BanMembers))
+      return msg.channel.send("❌ I don't have permission to ban users.");
+    const member = msg.mentions.members.first();
+    if (!member) return msg.channel.send("❌ Please mention a user to ban.");
+    // Role hierarchy check
+    if (member.roles.highest.position >= msg.guild.members.me.roles.highest.position)
+      return msg.channel.send("❌ Cannot ban this user due to role hierarchy.");
+    try {
+      await member.ban();
+      return msg.channel.send(`🔨 ${member.user.tag} has been banned.`);
+    } catch (err) {
+      console.error(err);
+      return msg.channel.send("❌ Failed to ban user.");
+    }
+  },
     if (!msg.member.permissions.has(PermissionFlagsBits.BanMembers)) return msg.channel.send("❌ No permission to ban users.");
     const member = msg.mentions.members.first();
     if (!member) return msg.channel.send("❌ Please mention a user to ban.");
