@@ -55,8 +55,7 @@ function delayedRestart(msg, successText, delay = 5000) {
 }
 
 const handlePrompt = async msg => {
-  const prompt = msg.content.replace(/^<@!?
-+>\s*/, '').trim();
+  const prompt = msg.content.replace(/^<@!?+>\s*/, '').trim();
   if (!prompt) return;
 
   try {
