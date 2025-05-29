@@ -76,7 +76,7 @@ function toSuperscript(num) {
 // AI handler (mention-based prompt)
 const handlePrompt = async msg => {
   // Strip bot mention using ID
-  const mentionRegex = new RegExp(`^<@!${client.user.id}>\s*`);
+  const mentionRegex = new RegExp(`^<@!?${client.user.id}>\s*`);
   const prompt = msg.content.replace(mentionRegex, '').trim();
   if (!prompt) return;
   try {
@@ -96,10 +96,8 @@ ${prompt}`;
     let reply = res.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, could not fetch an answer.';
     // Format math and superscripts
     reply = formatMathText(reply);
-    // Send as math code block
-    return msg.channel.send(`\`\`\`math
-${reply}
-\`\`\``);
+    // Send as plain formatted text (no code block)
+    return msg.channel.send(reply);
   } catch (e) {
     console.error(e);
     return msg.channel.send('⚠️ Failed to get AI response.');
