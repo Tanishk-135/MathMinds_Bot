@@ -56,22 +56,26 @@ function delayedRestart(msg, text, delay = 5000) {
   msg.channel.send(text).then(() => setTimeout(() => process.exit(0), delay));
 }
 
-function formatMathText(text) {
+const formatMathText = text => {
   return text
     .replace(/(\d)\^(\d+)/g, (_, base, exp) => base + toSuperscript(exp))
     .replace(/\bsqrt\(([^)]+)\)/g, '√$1')
     .replace(/\bpi\b/gi, 'π')
     .replace(/\btheta\b/gi, 'θ')
-    .replace(/⋅⋅\s*(.*?)\s*⋅⋅/gu, '**$1**');
-}
+    // Try the flexible regex:
+    .replace(/(?:[⋅·]){2}\s*(.*?)\s*(?:[⋅·]){2}/gu, '**$1**');
+};
 
-function toSuperscript(num) {
+const toSuperscript = num => {
   const superDigits = {
     '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
     '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'
   };
   return num.split('').map(d => superDigits[d] || d).join('');
 }
+
+const testStr = "··Hello World··"; // or "⋅⋅Hello World⋅⋅" based on what you see!
+console.log(formatMathText(testStr));
 
 // AI handler (mention-based prompt)
 const handlePrompt = async msg => {
