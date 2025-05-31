@@ -131,7 +131,7 @@ Your job:
 
 Style rules:
 – Roast dumb math: "Bro thinks sin(x) = x 💀"
-– Use Discord formatting: **bold**, \`inline code\`, and \`\`\`code blocks\`\`\` use these in your format as discord only supports this and your messages are going to discord.
+– Use Discord formatting: **bold**, `inline code`, and ```code blocks``` use these in your format as discord only supports this and your messages are going to discord.
 – Use emojis, TikTok slang, baby rage, and MrBeast-level energy
 – NEVER be formal. NEVER be dry. NEVER be a textbook.
 - If multiplying, use dots "⋅" and not "*'.
@@ -175,6 +175,21 @@ client.on('messageCreate', async msg => {
   if (mention && !cmdMatch) {
     console.log(`AI Activated | Time: ${new Date().toLocaleString()}`);
     return handlePrompt(msg);
+  }
+
+  // Custom send command for owner
+  const sendMatch = msg.content.match(/^!send (\d{17,20})\n\n([\s\S]*)/);
+  if (sendMatch && msg.author.id === process.env.OWNER_ID) {
+    const [, channelId, messageContent] = sendMatch;
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel || !channel.isTextBased()) return msg.channel.send('❌ Invalid channel ID.');
+    try {
+      await channel.send(messageContent.trim());
+      return msg.channel.send('✅ Message sent.');
+    } catch (e) {
+      console.error(e);
+      return msg.channel.send('❌ Failed to send message.');
+    }
   }
 
   if (!cmdMatch) return;
