@@ -11,6 +11,12 @@ const execPromise = util.promisify(exec);
 const TOKEN = process.env.BOT_TOKEN;
 const STARTUP_IGNORE = 1000; // ms
 
+// Gemini API Authentication
+const auth = new GoogleAuth({
+  keyFile: './gemini_key.json',
+  scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+});
+
 // Client setup
 const client = new Client({
   intents: [
