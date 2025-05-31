@@ -41,58 +41,6 @@ const formatUptime = ms => {
   return `${d}d ${h}h ${m}m`;
 };
 
-client.on('ready', async () => {
-  console.log(`Logged in as ${client.user.tag}`);
-  const channel = client.channels.cache.get("1377258433698336768");
-  if (!channel) {
-    console.error("Channel with ID 1377258433698336768 not found!");
-    return;
-  }
-  
-  const welcomeMessage = `@MathMind  
-  
-**Welcome to MathMinds United!** :rocket:  
-  
-This is **THE** place to flex your math skills, get help when your brain short-circuits, and vibe with fellow math nerds. Whether you're grinding equations or just here to see absurd math facts, we got you covered.  
-  
-**Where to Go:**  
-  
-<#1377926583569879100>  
-- Read the rules. Be cool. Don't be that guy. :no_entry_sign:  
-  
-<#1378330697747529798>  
-- Drop a "hello" and share something about your math journey—or just tell us your favorite irrational number.  
-  
-<#1378332239649312879>  
-- Brain not braining? Post your math struggles here. Need extra sauce? Ping @MathMinds Bot#4726.  
-  
-<#1378332314253398026>  
-- Free math hacks—notes, cheat sheets, videos—basically everything but your textbook (because who actually reads that?).  
-  
-<#1378041583236026458>  
-- Speedrun some math problems and prove your existence as an intellectual menace.  
-  
-<#1378332583766655058>  
-- Brain teasers that will make you question reality. Are you ready? :dizzy_face:  
-  
-<#1378335341764935680>  
-- Your daily dose of math facts, weird paradoxes, and galaxy brain insights—powered by @MathMinds Bot#4726.  
-  
-<#1378335536657203250>  
-- Got ideas? Want cooler events? Drop them here and let’s cook. :man_cook::fire:  
-  
-**How to Get Started:**  
-  
-:one: Say hi in <#1378330697747529798>  
-:two: Explore the channels—ask questions in <#1378332239649312879>, steal knowledge from <#1378332314253398026>, and prep for **BATTLE** in <#1378041583236026458>  
-  
-:fire: **Important Note:** Math-Blitz and Puzzle-Night event dates will be announced exclusively in <#1378035061474984136>. Stay tuned, or stay clueless.  
-  
-Time to crunch numbers and stack W's. Let's go! :rocket:`;
-
-  channel.send(welcomeMessage);
-});
-
 function delayedRestart(msg, text, delay = 5000) {
   msg.channel.send(text).then(() => setTimeout(() => process.exit(0), delay));
 }
