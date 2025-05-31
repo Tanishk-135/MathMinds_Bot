@@ -13,7 +13,7 @@ const STARTUP_IGNORE = 1000; // ms
 
 // Gemini API Authentication
 const auth = new GoogleAuth({
-  keyFile: './gemini_key.json',
+  keyFile: './MathMinds_Bot/gemini_key.json',
   scopes: ['https://www.googleapis.com/auth/cloud-platform'],
 });
 
