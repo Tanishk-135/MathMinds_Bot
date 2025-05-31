@@ -177,10 +177,11 @@ client.on('messageCreate', async msg => {
     return handlePrompt(msg);
   }
 
-  // Custom send command for owner
-  const sendMatch = msg.content.match(/^!send (\d{17,20})\n\n([\s\S]*)/);
+  // Custom send command for owner (supports channel ID or channel mention)
+  const sendMatch = msg.content.match(/^!send\s+(?:<#(\d+)>|(\d{17,20}))\s*\n\n([\s\S]*)/);
   if (sendMatch && msg.author.id === process.env.OWNER_ID) {
-    const [, channelId, messageContent] = sendMatch;
+    const channelId = sendMatch[1] || sendMatch[2];
+    const messageContent = sendMatch[3];
     const channel = await client.channels.fetch(channelId).catch(() => null);
     if (!channel || !channel.isTextBased()) return msg.channel.send('❌ Invalid channel ID.');
     try {
