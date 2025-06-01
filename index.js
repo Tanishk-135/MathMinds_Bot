@@ -59,7 +59,7 @@ client.once('ready', () => {
     } catch (err) {
         console.error('❌ Error fetching or sending news:', err);
     }
-});
+};
 
 // Utility functions
 const formatUptime = ms => {
