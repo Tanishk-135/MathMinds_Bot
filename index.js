@@ -35,31 +35,34 @@ let readyAt;
 client.once('ready', () => {
   readyAt = Date.now();
   console.log(`Logged in as ${client.user.tag}`);
-  async () => { // Runs daily at 9 AM IST
+  
+  // Immediately invoke the async function.
+  (async () => { // Runs daily at 9 AM IST (or for testing purposes)
     try {
-        const response = await fetch(NEWS_API_URL);
-        const data = await response.json();
+      const response = await fetch(NEWS_API_URL);
+      const data = await response.json();
 
-        if (data.articles && data.articles.length > 0) {
-            const topArticle = data.articles[0];
+      if (data.articles && data.articles.length > 0) {
+        const topArticle = data.articles[0];
 
-            const messageContent = `⚡ **MathMinds Daily Spotlight!** ⚡\n\nYo fam! 🌎 This news is 🔥:\n**${topArticle.title}**\n${topArticle.url}\n\nStay curious, stay mathy! 🧮`;
+        const messageContent = `⚡ **MathMinds Daily Spotlight!** ⚡\n\nYo fam! 🌎 This news is 🔥:\n**${topArticle.title}**\n${topArticle.url}\n\nStay curious, stay mathy! 🧮`;
 
-            const channel = client.channels.cache.find(ch => ch.name === 'math-spotlight');
+        const channel = client.channels.cache.find(ch => ch.name === 'math-spotlight');
 
-            if (channel) {
-                await channel.send(messageContent);
-                console.log(`✅ Sent today's mind-blowing news: ${topArticle.title}`);
-            } else {
-                console.error('❌ Channel #math-spotlight not found!');
-            }
+        if (channel) {
+          await channel.send(messageContent);
+          console.log(`✅ Sent today's mind-blowing news: ${topArticle.title}`);
         } else {
-            console.log('❌ No news available today.');
+          console.error('❌ Channel #math-spotlight not found!');
         }
+      } else {
+        console.log('❌ No news available today.');
+      }
     } catch (err) {
-        console.error('❌ Error fetching or sending news:', err);
+      console.error('❌ Error fetching or sending news:', err);
     }
-};
+  })(); // Note the immediate invocation ( ) after the function definition.
+});
 
 // Utility functions
 const formatUptime = ms => {
