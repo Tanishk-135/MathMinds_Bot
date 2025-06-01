@@ -6,10 +6,14 @@ const { GoogleAuth } = require('google-auth-library');
 const { exec } = require('child_process');
 const util = require('util');
 const execPromise = util.promisify(exec);
+const cron = require('node-cron');
+const fetch = require('node-fetch');
 
 // Config/constants
 const TOKEN = process.env.BOT_TOKEN;
 const STARTUP_IGNORE = 1000; // ms
+const NEWS_API_KEY = process.env.NEWS_API_KEY;
+const NEWS_API_URL = `https://newsapi.org/v2/top-headlines?language=en&category=general&apiKey=${NEWS_API_KEY}`;
 
 // Gemini API Authentication
 const auth = new GoogleAuth({
@@ -31,6 +35,30 @@ let readyAt;
 client.once('ready', () => {
   readyAt = Date.now();
   console.log(`Logged in as ${client.user.tag}`);
+  async () => { // Runs daily at 9 AM IST
+    try {
+        const response = await fetch(NEWS_API_URL);
+        const data = await response.json();
+
+        if (data.articles && data.articles.length > 0) {
+            const topArticle = data.articles[0];
+
+            const messageContent = `⚡ **MathMinds Daily Spotlight!** ⚡\n\nYo fam! 🌎 This news is 🔥:\n**${topArticle.title}**\n${topArticle.url}\n\nStay curious, stay mathy! 🧮`;
+
+            const channel = client.channels.cache.find(ch => ch.name === 'math-spotlight');
+
+            if (channel) {
+                await channel.send(messageContent);
+                console.log(`✅ Sent today's mind-blowing news: ${topArticle.title}`);
+            } else {
+                console.error('❌ Channel #math-spotlight not found!');
+            }
+        } else {
+            console.log('❌ No news available today.');
+        }
+    } catch (err) {
+        console.error('❌ Error fetching or sending news:', err);
+    }
 });
 
 // Utility functions
