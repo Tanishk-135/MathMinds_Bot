@@ -9,6 +9,10 @@ const execPromise = util.promisify(exec);
 const cron = require('node-cron');
 const fetch = require('node-fetch');
 
+async function fetchArticleContent(url) {
+  return ''; // placeholder: no content
+}
+
 // Config/constants
 const TOKEN = process.env.BOT_TOKEN;
 const STARTUP_IGNORE = 1000; // ms
@@ -17,7 +21,7 @@ const NEWS_API_URL = `https://newsapi.org/v2/top-headlines?language=en&category=
 
 // Gemini API Authentication
 const auth = new GoogleAuth({
-  keyFile: './MathMinds_Bot/gemini_key.json',
+  keyFile: './gemini_key.json',
   scopes: ['https://www.googleapis.com/auth/cloud-platform'],
 });
 
