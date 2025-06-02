@@ -40,7 +40,7 @@ client.once('ready', () => {
   
   // Immediately invoke the async function.
 // Helper: generate Mathy response
-ttp async function generateMathyResponse(text) {
+async function generateMathyResponse(text) {
   const mathPrompt = `
 You are Mathy, the Gen Z MathBot — a chaotic, funny, cracked-at-math AI tutor with meme rizz.
 You're 50% math genius, 50% TikTok goblin, and 100% unhinged.
