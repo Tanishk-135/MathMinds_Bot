@@ -217,7 +217,6 @@ client.on('messageCreate', async msg => {
     if (!channel || !channel.isTextBased()) return msg.channel.send('❌ Invalid channel ID.');
     try {
       await channel.send(messageContent.trim());
-      return msg.channel.send('✅ Message sent.');
     } catch (e) {
       console.error(e);
       return msg.channel.send('❌ Failed to send message.');
