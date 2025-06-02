@@ -35,6 +35,7 @@ let readyAt;
 client.once('ready', () => {
   readyAt = Date.now();
   console.log(`Logged in as ${client.user.tag}`);
+  console.log('NEWS_API_KEY =', NEWS_API_KEY);
   
   // Immediately invoke the async function.
   (async () => { // Runs daily at 9 AM IST (or for testing purposes)
