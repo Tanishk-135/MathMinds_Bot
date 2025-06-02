@@ -39,28 +39,67 @@ client.once('ready', () => {
   console.log('NEWS_API_KEY =', NEWS_API_KEY);
   
   // Immediately invoke the async function.
+// Helper: generate Mathy response
+ttp async function generateMathyResponse(text) {
+  const mathPrompt = `
+You are Mathy, the Gen Z MathBot — a chaotic, funny, cracked-at-math AI tutor with meme rizz.
+You're 50% math genius, 50% TikTok goblin, and 100% unhinged.
+
+Your job:
+✅ Explain this news in Gen Z style + emojis, accurate on math context
+✅ Use Discord formatting: **bold**, \`inline code\`, and ```code blocks``` 
+✅ Roast any “dumb math” misconceptions and keep it hype
+✅ End with a goofy math catchphrase like “Go touch some π 🥧” or “That’s a cosine crime fr 😤”
+
+Now explain this news:
+${text}`;
+
+  try {
+    const clientAuth = await auth.getClient();
+    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    const res = await clientAuth.request({
+      url,
+      method: 'POST',
+      data: {
+        contents: [{ parts: [{ text: mathPrompt }] }],
+        generationConfig: { candidateCount: 1, temperature: 0.7, maxOutputTokens: 2000 }
+      }
+    });
+    let reply = res.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Mathy could not fetch an answer.';
+    return formatMathText(reply);
+  } catch (e) {
+    console.error('Error generating Mathy response:', e);
+    return 'Mathy failed to process news.';
+  }
+}
+
+// On ready: fetch math news, scrape content, pass to Mathy, send to channel
+client.once('ready', () => {
+  readyAt = Date.now();
+  console.log(`Logged in as ${client.user.tag}`);
+
   (async () => {
     try {
-      const channel = client.channels.cache.get(SPOTLIGHT_CHANNEL_ID);
-      if (!channel) {
-        console.error(`❌ Channel ID ${SPOTLIGHT_CHANNEL_ID} not found in cache.`);
-        return;
-      }
-
       const response = await fetch(NEWS_API_URL);
       const data = await response.json();
-      console.log('🔍 Raw NewsAPI response:', data);
+      console.log('Raw NewsAPI response:', data);
 
-      if (data.articles && data.articles.length > 0) {
-        const topArticle = data.articles[0];
-        const messageContent = `⚡ **MathMinds Daily Spotlight!** ⚡\n\nYo fam! 🌎 This news is 🔥:\n**${topArticle.title}**\n${topArticle.url}\n\nStay curious, stay mathy! 🧮`;
-        await channel.send(messageContent);
-        console.log(`✅ Sent today's mind-blowing news: ${topArticle.title}`);
+      if (data.articles?.length > 0) {
+        const { title, url: articleUrl } = data.articles[0];
+        const excerpt = await fetchArticleContent(articleUrl);
+        const newsText = `Headline:\n"${title}"\n\n${excerpt || 'No content.'}`;
+        const mathyReply = await generateMathyResponse(newsText);
+
+        const SPOTLIGHT_CHANNEL_ID = 'PUT_CHANNEL_ID_HERE';
+        let channel = client.channels.cache.get(SPOTLIGHT_CHANNEL_ID) || await client.channels.fetch(SPOTLIGHT_CHANNEL_ID);
+        if (!channel?.isTextBased()) return console.error('Channel not found or not text-based');
+        await channel.send(`⚡ MathMinds Spotlight! ⚡\n\n${mathyReply}`);
+        console.log('Sent Mathy’s news explanation');
       } else {
-        console.log('❌ No news available today.');
+        console.log('No math news available today.');
       }
     } catch (err) {
-      console.error('❌ Error fetching or sending news:', err);
+      console.error('Error fetching or sending Mathy response:', err);
     }
   })();
 });
