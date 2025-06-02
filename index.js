@@ -8,6 +8,7 @@ const util = require('util');
 const execPromise = util.promisify(exec);
 const cron = require('node-cron');
 const fetch = require('node-fetch');
+const SPOTLIGHT_CHANNEL_ID = '1378335341764935680'; 
 
 // Config/constants
 const TOKEN = process.env.BOT_TOKEN;
@@ -38,31 +39,30 @@ client.once('ready', () => {
   console.log('NEWS_API_KEY =', NEWS_API_KEY);
   
   // Immediately invoke the async function.
-  (async () => { // Runs daily at 9 AM IST (or for testing purposes)
+  (async () => {
     try {
+      const channel = client.channels.cache.get(SPOTLIGHT_CHANNEL_ID);
+      if (!channel) {
+        console.error(`❌ Channel ID ${SPOTLIGHT_CHANNEL_ID} not found in cache.`);
+        return;
+      }
+
       const response = await fetch(NEWS_API_URL);
       const data = await response.json();
+      console.log('🔍 Raw NewsAPI response:', data);
 
       if (data.articles && data.articles.length > 0) {
         const topArticle = data.articles[0];
-
         const messageContent = `⚡ **MathMinds Daily Spotlight!** ⚡\n\nYo fam! 🌎 This news is 🔥:\n**${topArticle.title}**\n${topArticle.url}\n\nStay curious, stay mathy! 🧮`;
-
-        const channel = client.channels.cache.find(ch => ch.name === 'math-spotlight');
-
-        if (channel) {
-          await channel.send(messageContent);
-          console.log(`✅ Sent today's mind-blowing news: ${topArticle.title}`);
-        } else {
-          console.error('❌ Channel #math-spotlight not found!');
-        }
+        await channel.send(messageContent);
+        console.log(`✅ Sent today's mind-blowing news: ${topArticle.title}`);
       } else {
         console.log('❌ No news available today.');
       }
     } catch (err) {
       console.error('❌ Error fetching or sending news:', err);
     }
-  })(); // Note the immediate invocation ( ) after the function definition.
+  })();
 });
 
 // Utility functions
