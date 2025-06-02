@@ -8,7 +8,6 @@ const util = require('util');
 const execPromise = util.promisify(exec);
 const cron = require('node-cron');
 const fetch = require('node-fetch');
-const SPOTLIGHT_CHANNEL_ID = '1378335341764935680'; 
 
 // Config/constants
 const TOKEN = process.env.BOT_TOKEN;
@@ -31,67 +30,67 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
+
 let readyAt;
 
+// --------------------
+// First client.once: define helper and immediately‐invoked fetch logic
+// --------------------
 client.once('ready', () => {
   readyAt = Date.now();
   console.log(`Logged in as ${client.user.tag}`);
   console.log('NEWS_API_KEY =', NEWS_API_KEY);
-  
-  // Immediately invoke the async function.
-// Helper: generate Mathy response
-async function generateMathyResponse(text) {
-  const mathPrompt = `
-  You are Mathy, the Gen Z MathBot — a chaotic, funny, cracked-at-math AI tutor with meme rizz.
-  You're 50% math genius, 50% TikTok goblin, and 100% unhinged.
-  
-  Your job:
-  ✅ Explain class 6–12 math topics
-  ✅ Use Gen Z humor, Skibidi energy, and goofy ahh slang
-  ✅ Be accurate, but never boring
-  ✅ End every answer with a goofy math catchphrase like:
-  – "Go touch some π 🥧"
-  – "That’s a cosine crime fr 😤"
-  – "Stay skewed, not rude 📐"
-  – "Math is lowkey bussin frfr 📈"
-  – You can also create your own
-  
-  Style rules:
-  – Roast dumb math: "Bro thinks sin(x) = x 💀"
-  – Use Discord formatting: **bold**, \`inline code\`, and \`\`\`code blocks\`\`\` — use these in your format as Discord only supports them.
-  – Use emojis, TikTok slang, baby rage, and MrBeast-level energy
-  – NEVER be formal. NEVER be dry. NEVER be a textbook.
-  – If multiplying, use dots "⋅" not "*"
-  – Use code blocks only if necessary.
-  – For subpoints/headings, use "**" instead of "⋅⋅", because Discord supports that.
-  
-  Now explain this news like the Mathy you are:
-  ${text}`;
 
-  try {
-    const clientAuth = await auth.getClient();
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-    const res = await clientAuth.request({
-      url,
-      method: 'POST',
-      data: {
-        contents: [{ parts: [{ text: mathPrompt }] }],
-        generationConfig: { candidateCount: 1, temperature: 0.7, maxOutputTokens: 2000 }
-      }
-    });
-    let reply = res.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Mathy could not fetch an answer.';
-    return formatMathText(reply);
-  } catch (e) {
-    console.error('Error generating Mathy response:', e);
-    return 'Mathy failed to process news.';
+  // Helper: generate Mathy response
+  async function generateMathyResponse(text) {
+    const mathPrompt = `
+You are Mathy, the Gen Z MathBot — a chaotic, funny, cracked-at-math AI tutor with meme rizz.
+You're 50% math genius, 50% TikTok goblin, and 100% unhinged.
+
+Your job:
+✅ Explain class 6–12 math topics
+✅ Use Gen Z humor, Skibidi energy, and goofy ahh slang
+✅ Be accurate, but never boring
+✅ End every answer with a goofy math catchphrase like:
+– "Go touch some π 🥧"
+– "That’s a cosine crime fr 😤"
+– "Stay skewed, not rude 📐"
+– "Math is lowkey bussin frfr 📈"
+– You can also create your own
+
+Style rules:
+– Roast dumb math: "Bro thinks sin(x) = x 💀"
+– Use Discord formatting: **bold**, \`inline code\`, and \`\`\`code blocks\`\`\` — use these in your format as Discord only supports them.
+– Use emojis, TikTok slang, baby rage, and MrBeast-level energy
+– NEVER be formal. NEVER be dry. NEVER be a textbook.
+– If multiplying, use dots "⋅" not "*"
+– Use code blocks only if necessary.
+– For subpoints/headings, use "**" instead of "⋅⋅", because Discord supports that.
+
+Now explain this news like the Mathy you are:
+${text}
+`;  // ← closing backtick
+
+    try {
+      const clientAuth = await auth.getClient();
+      const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+      const res = await clientAuth.request({
+        url,
+        method: 'POST',
+        data: {
+          contents: [{ parts: [{ text: mathPrompt }] }],
+          generationConfig: { candidateCount: 1, temperature: 0.7, maxOutputTokens: 2000 }
+        }
+      });
+      let reply = res.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Mathy could not fetch an answer.';
+      return formatMathText(reply);
+    } catch (e) {
+      console.error('Error generating Mathy response:', e);
+      return 'Mathy failed to process news.';
+    }
   }
-}
 
-// On ready: fetch math news, scrape content, pass to Mathy, send to channel
-client.once('ready', () => {
-  readyAt = Date.now();
-  console.log(`Logged in as ${client.user.tag}`);
-
+  // On ready: fetch news, scrape content, pass to Mathy, send to channel
   (async () => {
     try {
       const response = await fetch(NEWS_API_URL);
@@ -104,9 +103,11 @@ client.once('ready', () => {
         const newsText = `Headline:\n"${title}"\n\n${excerpt || 'No content.'}`;
         const mathyReply = await generateMathyResponse(newsText);
 
-        const SPOTLIGHT_CHANNEL_ID = 'PUT_CHANNEL_ID_HERE';
-        let channel = client.channels.cache.get(SPOTLIGHT_CHANNEL_ID) || await client.channels.fetch(SPOTLIGHT_CHANNEL_ID);
-        if (!channel?.isTextBased()) return console.error('Channel not found or not text-based');
+        let channel = client.channels.cache.get(SPOTLIGHT_CHANNEL_ID)
+                   || await client.channels.fetch(SPOTLIGHT_CHANNEL_ID);
+        if (!channel?.isTextBased()) {
+          return console.error('Channel not found or not text-based');
+        }
         await channel.send(`⚡ MathMinds Spotlight! ⚡\n\n${mathyReply}`);
         console.log('Sent Mathy’s news explanation');
       } else {
@@ -116,9 +117,20 @@ client.once('ready', () => {
       console.error('Error fetching or sending Mathy response:', err);
     }
   })();
+}); // ← closes the first client.once('ready')
+
+// --------------------
+// Second client.once: (AI handler registration only, no nesting)
+// --------------------
+client.once('ready', () => {
+  // If you intended a second “ready” listener, it should appear here,
+  // but typically you only need a single client.once('ready'). If you
+  // need additional “on ready” behavior, merge it into the block above.
 });
 
-// Utility functions
+// --------------------
+// Utility functions (formatUptime, formatMathText, toSuperscript, etc.)
+// --------------------
 const formatUptime = ms => {
   const m = Math.floor(ms / 60000) % 60;
   const h = Math.floor(ms / 3600000) % 24;
@@ -147,20 +159,18 @@ const toSuperscript = num => {
   return num.split('').map(d => superDigits[d] || d).join('');
 };
 
-const testStr = "··Hello World··"; // or "⋅⋅Hello World⋅⋅" based on what you see!
+const testStr = "··Hello World··"; // or "⋅⋅Hello World⋅⋅"
 console.log(formatMathText(testStr));
 
 // -------------------------------------------------------------------
-// Exponential Equation Solver functions (Quadratic Equation Logic)
-// These functions help Mathy slow down (using delays) when outputting debugging logs.
-
+// Exponential Equation Solver functions (unchanged)
+// -------------------------------------------------------------------
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function solveExponentialEquation(expression) {
   console.log(`🔍 Solving: ${expression}`);
   await delay(1000);
 
-  // Parse the equation (assuming it's in the form (expr)^(expr) = constant)
   let match = expression.match(/\((.*?)\)\^\((.*?)\) = (\d+)/);
   if (!match) return "⚠️ Invalid equation format.";
 
@@ -168,9 +178,8 @@ async function solveExponentialEquation(expression) {
   let exponentExpr = match[2].trim();
   let targetValue = parseFloat(match[3]);
 
-  // Ensure base and exponent are identical before solving
   if (baseExpr !== exponentExpr) {
-      return "❌ Exponent and base must be equal!";
+    return "❌ Exponent and base must be equal!";
   }
 
   console.log(`📌 Found quadratic expression: ${baseExpr}`);
@@ -186,15 +195,16 @@ async function solveExponentialEquation(expression) {
 function findValidExponentSolutions(value) {
   let solutions = [];
   for (let y = 1; y <= value; y++) {
-      if (Math.pow(y, y) === value) {
-          solutions.push(y);
-      }
+    if (Math.pow(y, y) === value) {
+      solutions.push(y);
+    }
   }
   return solutions.length ? solutions : ["No real solutions"];
 }
-// -------------------------------------------------------------------
 
-// AI handler (mention-based prompt)
+// --------------------
+// AI handler (mention-based prompt) and message listener
+// --------------------
 const handlePrompt = async msg => {
   const mentionRegex = new RegExp(`^<@!?${client.user.id}>\\s*`);
   const prompt = msg.content.replace(mentionRegex, '').trim();
@@ -217,7 +227,7 @@ Your job:
 
 Style rules:
 – Roast dumb math: "Bro thinks sin(x) = x 💀"
-– Use Discord formatting: **bold**, \`inline code\`, and \`\`\`code blocks\`\`\` — use these in your format as Discord only supports them.
+– Use Discord formatting: **bold**, \`inline code\`, and \`\`\`code blocks\`\`\`
 – Use emojis, TikTok slang, baby rage, and MrBeast-level energy
 – NEVER be formal. NEVER be dry. NEVER be a textbook.
 – If multiplying, use dots "⋅" not "*"
@@ -225,9 +235,9 @@ Style rules:
 – For subpoints/headings, use "**" instead of "⋅⋅", because Discord supports that.
 
 Now answer this like the Sigma math goblin you are:
-${prompt}`;
+${prompt}
+`;
 
-    const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/generative-language'] });
     const clientAuth = await auth.getClient();
     const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
     const res = await clientAuth.request({
@@ -251,7 +261,6 @@ ${prompt}`;
   }
 };
 
-// Message listener
 client.on('messageCreate', async msg => {
   if (msg.author.bot || Date.now() - readyAt < STARTUP_IGNORE) return;
   const mention = msg.mentions.has(client.user);
@@ -285,7 +294,9 @@ client.on('messageCreate', async msg => {
   msg.channel.send('❓ Unknown command. See !help.');
 });
 
+// --------------------
 // Command Handlers
+// --------------------
 const handlers = {
   ping: msg => msg.channel.send('🌿 Pong!'),
   hello: msg => msg.channel.send('Hey there! 👋'),
@@ -364,4 +375,7 @@ const handlers = {
   check: msg => msg.channel.send('✅ All commands operational.')
 };
 
+// --------------------
+// Finally, log in the bot
+// --------------------
 client.login(TOKEN);
