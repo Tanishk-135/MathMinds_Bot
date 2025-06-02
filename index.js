@@ -22,7 +22,10 @@ const NEWS_API_URL = `https://newsapi.org/v2/top-headlines?language=en&category=
 // Gemini API Authentication
 const auth = new GoogleAuth({
   keyFile: './gemini_key.json',
-  scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+  scopes: [
+    'https://www.googleapis.com/auth/cloud-platform',
+    'https://www.googleapis.com/auth/generative-language'
+  ],
 });
 
 // Client setup
