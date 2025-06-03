@@ -17,7 +17,7 @@ async function fetchArticleContent(url) {
 const TOKEN = process.env.BOT_TOKEN;
 const STARTUP_IGNORE = 1000; // ms
 const NEWS_API_KEY = process.env.NEWS_API_KEY;
-const NEWS_API_URL = `https://newsapi.org/v2/everything?language=en&q=math&sortBy=publishedAt&apiKey=${NEWS_API_KEY}`;
+const NEWS_API_URL = `https://newsapi.org/v2/everything?language=en&q="mathematics" OR "math education" OR "math research"&sortBy=publishedAt&apiKey=${NEWS_API_KEY}`;
 const SPOTLIGHT_CHANNEL_ID = '1378335341764935680';
 
 // Gemini API Authentication
