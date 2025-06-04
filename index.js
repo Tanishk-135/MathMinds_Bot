@@ -47,7 +47,6 @@ let readyAt;
 client.once('ready', () => {
   readyAt = Date.now();
   console.log(`Logged in as ${client.user.tag}`);
-  console.log('NEWS_API_KEY =', NEWS_API_KEY);
 
   // Helper: generate Mathy response
   async function generateMathyResponse(text) {
