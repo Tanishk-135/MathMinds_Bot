@@ -323,8 +323,7 @@ const handlers = {
     const count = parseInt(msg.content.split(' ')[1]);
     if (!count || count < 1 || count > 100) return msg.channel.send('⚠️ Provide 1-100.');
     try {
-      await msg.channel.bulkDelete(count, true);
-      msg.channel.send(`🧹 Deleted ${count} messages.`);
+      await msg.channel.bulkDelete(count + 1, true);
     } catch (e) {
       console.error(e);
       msg.channel.send('❌ Delete failed.');
