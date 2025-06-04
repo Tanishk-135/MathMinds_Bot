@@ -135,6 +135,18 @@ client.once('ready', () => {
   // need additional “on ready” behavior, merge it into the block above.
 });
 
+client.on('guildMemberAdd', async (member) => {
+    const roleId = '1378364940322345071'; // MathMinds Role ID
+    const role = member.guild.roles.cache.get(roleId);
+    
+    if (role) {
+        await member.roles.add(role).catch(console.error);
+        console.log(`Assigned MathMinds role to ${member.user.tag}`);
+    } else {
+        console.error('Role not found!');
+    }
+});
+
 // --------------------
 // Utility functions (formatUptime, formatMathText, toSuperscript, etc.)
 // --------------------
