@@ -73,6 +73,7 @@ Style rules:
 – If multiplying, use dots "⋅" not "*"
 – Use code blocks only if necessary.
 – For subpoints/headings, use "**" instead of "⋅⋅", because Discord supports that.
+– Use short responses for direct messages and long form for explanations.
 
 Now explain this news like the Mathy you are:
 ${text}
