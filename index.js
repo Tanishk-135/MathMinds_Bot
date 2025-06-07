@@ -301,6 +301,10 @@ client.on('messageCreate', async msg => {
     // Call handlePrompt(msg) to generate Mathy's response.
     // IMPORTANT: Ensure that handlePrompt returns the reply text.
     const botResponse = await handlePrompt(msg);
+    console.log("Bot response before storing:", botResponse); // Debugging log
+    
+    // ✅ Store Mathy's response in Redis & PostgreSQL
+    await storeMessage(msg.author.id, "bot", botResponse, "discord");
 
     // Now, store Mathy’s reply as a bot message.
     await storeMessage(userId, "bot", botResponse, "discord");
