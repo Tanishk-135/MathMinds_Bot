@@ -284,20 +284,29 @@ ${prompt}
 };
 
 client.on('messageCreate', async msg => {
+  // Skip messages from bots or during startup grace period
   if (msg.author.bot || Date.now() - readyAt < STARTUP_IGNORE) return;
+
   const mention = msg.mentions.has(client.user);
   const cmdMatch = msg.content.match(/^!(\w+)/);
 
+  // If Mathy is mentioned (without a command), handle it as a chat prompt.
   if (mention && !cmdMatch) {
     console.log(`AI Activated | Time: ${new Date().toLocaleString()}`);
-  
     const userId = msg.author.id;
-    const userMessage = msg.content;
-  
-    // ✅ Store user message in Redis & PostgreSQL
-    await storeMessage(userId, "user", userMessage);
-  
-    return handlePrompt(msg);
+
+    // First, store the user’s message in the database.
+    await storeMessage(userId, "user", msg.content);
+
+    // Call handlePrompt(msg) to generate Mathy's response.
+    // IMPORTANT: Ensure that handlePrompt returns the reply text.
+    const botResponse = await handlePrompt(msg);
+
+    // Now, store Mathy’s reply as a bot message.
+    await storeMessage(userId, "bot", botResponse, "discord");
+
+    // Finally, send the response to Discord.
+    return msg.channel.send(botResponse);
   }
 
   // Custom send command for owner (supports channel ID or channel mention)
@@ -315,26 +324,25 @@ client.on('messageCreate', async msg => {
     }
   }
 
+  // If no command match, simply return.
   if (!cmdMatch) return;
 
-    const cmd = cmdMatch[1].toLowerCase();
-    const handler = handlers[cmd];
-    if (handler) {
-      const botResponse = await handler(msg);
-  
-      // ✅ Store Mathy's response in Redis & PostgreSQL
-      await storeMessage(msg.author.id, "bot", botResponse, "discord");
-  
-      return msg.channel.send(botResponse);
+  // For commands, get the corresponding handler.
+  const cmd = cmdMatch[1].toLowerCase();
+  const handler = handlers[cmd];
+  if (handler) {
+    // Execute the command handler, which should return Mathy's reply as text.
+    const botResponse = await handler(msg);
+    // Store Mathy's response
+    await storeMessage(msg.author.id, "bot", botResponse, "discord");
+    return msg.channel.send(botResponse);
   }
-  
-  const botResponse = '❓ Unknown command. See !help.';
-  msg.channel.send(botResponse);
-  
-  // ✅ Store Mathy's response in Redis & PostgreSQL
-  await storeMessage(msg.author.id, "bot", botResponse, "discord");
-});
 
+  // If command isn't recognized, reply with an unknown command message.
+  const unknownResponse = '❓ Unknown command. See !help.';
+  await storeMessage(msg.author.id, "bot", unknownResponse, "discord");
+  return msg.channel.send(unknownResponse);
+});
 // --------------------
 // Command Handlers
 // --------------------
