@@ -317,15 +317,15 @@ client.on('messageCreate', async msg => {
 
   if (!cmdMatch) return;
 
-  const cmd = cmdMatch[1].toLowerCase();
-  const handler = handlers[cmd];
-  if (handler) {
-    const botResponse = await handler(msg);
+    const cmd = cmdMatch[1].toLowerCase();
+    const handler = handlers[cmd];
+    if (handler) {
+      const botResponse = await handler(msg);
   
-    // ✅ Store Mathy's response in Redis & PostgreSQL
-    await storeMessage(msg.author.id, "bot", botResponse, "discord");
+      // ✅ Store Mathy's response in Redis & PostgreSQL
+      await storeMessage(msg.author.id, "bot", botResponse, "discord");
   
-    return botResponse;
+      return msg.channel.send(botResponse);
   }
   
   const botResponse = '❓ Unknown command. See !help.';
