@@ -1,6 +1,6 @@
 // Load environment variables from the .env file
 require('dotenv').config();
-
+const { storeMessage, getRecentMessagesWithContext } = require("./redisSetup.js");
 const { Client, GatewayIntentBits, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { GoogleAuth } = require('google-auth-library');
 const { exec } = require('child_process');
@@ -302,6 +302,13 @@ client.on('messageCreate', async msg => {
 
   if (mention && !cmdMatch) {
     console.log(`AI Activated | Time: ${new Date().toLocaleString()}`);
+  
+    const userId = msg.author.id;
+    const userMessage = msg.content;
+  
+    // ✅ Store user message in Redis & PostgreSQL
+    await storeMessage(userId, "user", userMessage);
+  
     return handlePrompt(msg);
   }
 
@@ -324,8 +331,20 @@ client.on('messageCreate', async msg => {
 
   const cmd = cmdMatch[1].toLowerCase();
   const handler = handlers[cmd];
-  if (handler) return handler(msg);
-  msg.channel.send('❓ Unknown command. See !help.');
+  if (handler) {
+    const botResponse = await handler(msg);
+  
+    // ✅ Store Mathy's response in Redis & PostgreSQL
+    await storeMessage(msg.author.id, "bot", botResponse, "discord");
+  
+    return botResponse;
+  }
+  
+  const botResponse = '❓ Unknown command. See !help.';
+  msg.channel.send(botResponse);
+  
+  // ✅ Store Mathy's response in Redis & PostgreSQL
+  await storeMessage(msg.author.id, "bot", botResponse, "discord");
 });
 
 // --------------------
