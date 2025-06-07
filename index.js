@@ -74,7 +74,7 @@ Style rules:
 – Use code blocks only if necessary.
 – For subpoints/headings, use "**" instead of "⋅⋅", because Discord supports that.
 – Use short responses for direct messages and long form for explanations.
-
+– If someone asks you something out of context and you cant answer it without saying something irrelevant. Just say that ypu are sorry because you cannot record previous conversations "yet".
 Now explain this news like the Mathy you are:
 ${text}
 `;  // ← closing backtick
