@@ -326,7 +326,7 @@ client.on('messageCreate', async msg => {
     if (!timeString) {
       // No time provided, send immediately
       try {
-        await channel.send(messageContent.trim());
+        await channel.send({ content: messageContent.trim() });
         return msg.channel.send('✅ Message sent immediately.');
       } catch (e) {
         console.error(e);
@@ -367,7 +367,7 @@ client.on('messageCreate', async msg => {
   
     setTimeout(async () => {
       try {
-        await channel.send(messageContent.trim());
+        await channel.send({ content: messageContent.trim() });
       } catch (e) {
         console.error(e);
         return msg.channel.send('❌ Failed to send message.');
