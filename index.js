@@ -334,13 +334,20 @@ client.on('messageCreate', async msg => {
       }
     }
   
-    // Parse the time
+    // Parse the time correctly
     const now = new Date();
-    const [time, period] = timeString.split(/\s*/);
-    let [hours, minutes] = time.split(':').map(Number);
+    const timeParts = timeString.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    
+    if (!timeParts) {
+      return msg.channel.send('❌ Invalid time format. Use HH:MM AM/PM.');
+    }
   
-    if (/PM/i.test(period) && hours < 12) hours += 12;
-    if (/AM/i.test(period) && hours === 12) hours = 0;
+    let hours = parseInt(timeParts[1], 10);
+    let minutes = parseInt(timeParts[2], 10);
+    const period = timeParts[3].toUpperCase();
+  
+    if (period === "PM" && hours < 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
   
     const sendTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
   
@@ -348,6 +355,15 @@ client.on('messageCreate', async msg => {
     if (sendTime < now) sendTime.setDate(sendTime.getDate() + 1);
   
     const delay = sendTime.getTime() - now.getTime();
+  
+    // Validate delay before scheduling
+    if (isNaN(delay) || delay < 0) {
+      return msg.channel.send('❌ Error: Invalid delay calculation.');
+    }
+  
+    console.log(`Current Time: ${now}`);
+    console.log(`Scheduled Time: ${sendTime}`);
+    console.log(`Delay (ms): ${delay}`);
   
     setTimeout(async () => {
       try {
@@ -360,7 +376,6 @@ client.on('messageCreate', async msg => {
   
     msg.channel.send(`✅ Message scheduled for ${sendTime.toLocaleTimeString()}`);
   }
-
   // If no command match, simply return.
   if (!cmdMatch) return;
 
