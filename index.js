@@ -304,7 +304,8 @@ client.on('messageCreate', async msg => {
     console.log("Bot response before storing:", botResponse); // Debugging log
     
     // ✅ Store Mathy's response in Redis & PostgreSQL
-    await storeMessage(msg.author.id, "bot", botResponse, "discord");
+    const safeBotResponse = botResponse.trim() !== "" ? botResponse.trim() : "EMPTY_MESSAGE";
+    await storeMessage(msg.author.id, "bot", safeBotResponse, "discord");
 
     // Now, store Mathy’s reply as a bot message.
     await storeMessage(userId, "bot", botResponse, "discord");
@@ -384,7 +385,7 @@ if (sendMatch && msg.author.id === process.env.OWNER_ID) {
   });
 }
   // If no command match, simply return.
-  if (!cmdMatch) return;
+  if (!cmdMatch || cmdMatch[1].toLowerCase() === "send") return;
 
   // For commands, get the corresponding handler.
   const cmd = cmdMatch[1].toLowerCase();
