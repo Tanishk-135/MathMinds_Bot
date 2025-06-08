@@ -314,18 +314,51 @@ client.on('messageCreate', async msg => {
   }
 
   // Custom send command for owner (supports channel ID or channel mention)
-  const sendMatch = msg.content.match(/^!send\s+(?:<#(\d+)>|(\d{17,20}))\s*\n\n([\s\S]*)/);
+  const sendMatch = msg.content.match(/^!send\s+(?:<#(\d+)>|(\d{17,20}))\s*(\d{1,2}:\d{2}\s*[APMapm]*)?\s*\n\n([\s\S]*)/);
   if (sendMatch && msg.author.id === process.env.OWNER_ID) {
     const channelId = sendMatch[1] || sendMatch[2];
-    const messageContent = sendMatch[3];
+    const timeString = sendMatch[3]; // Optional time argument
+    const messageContent = sendMatch[4];
+  
     const channel = await client.channels.fetch(channelId).catch(() => null);
     if (!channel || !channel.isTextBased()) return msg.channel.send('❌ Invalid channel ID.');
-    try {
-      await channel.send(messageContent.trim());
-    } catch (e) {
-      console.error(e);
-      return msg.channel.send('❌ Failed to send message.');
+  
+    if (!timeString) {
+      // No time provided, send immediately
+      try {
+        await channel.send(messageContent.trim());
+        return msg.channel.send('✅ Message sent immediately.');
+      } catch (e) {
+        console.error(e);
+        return msg.channel.send('❌ Failed to send message.');
+      }
     }
+  
+    // Parse the time
+    const now = new Date();
+    const [time, period] = timeString.split(/\s*/);
+    let [hours, minutes] = time.split(':').map(Number);
+  
+    if (/PM/i.test(period) && hours < 12) hours += 12;
+    if (/AM/i.test(period) && hours === 12) hours = 0;
+  
+    const sendTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+  
+    // If the time has already passed today, schedule for tomorrow
+    if (sendTime < now) sendTime.setDate(sendTime.getDate() + 1);
+  
+    const delay = sendTime.getTime() - now.getTime();
+  
+    setTimeout(async () => {
+      try {
+        await channel.send(messageContent.trim());
+      } catch (e) {
+        console.error(e);
+        return msg.channel.send('❌ Failed to send message.');
+      }
+    }, delay);
+  
+    msg.channel.send(`✅ Message scheduled for ${sendTime.toLocaleTimeString()}`);
   }
 
   // If no command match, simply return.
