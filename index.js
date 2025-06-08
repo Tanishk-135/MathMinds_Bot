@@ -314,68 +314,75 @@ client.on('messageCreate', async msg => {
   }
 
   // Custom send command for owner (supports channel ID or channel mention)
-  const sendMatch = msg.content.match(/^!send\s+(?:<#(\d+)>|(\d{17,20}))\s*(\d{1,2}:\d{2}\s*[APMapm]*)?\s*\n\n([\s\S]*)/);
-  if (sendMatch && msg.author.id === process.env.OWNER_ID) {
-    const channelId = sendMatch[1] || sendMatch[2];
-    const timeString = sendMatch[3]; // Optional time argument
-    const messageContent = sendMatch[4];
-  
-    const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (!channel || !channel.isTextBased()) return msg.channel.send('❌ Invalid channel ID.');
-  
-    if (!timeString) {
-      // No time provided, send immediately
-      try {
-        await channel.send({ content: messageContent.trim() });
-        return msg.channel.send('✅ Message sent immediately.');
-      } catch (e) {
-        console.error(e);
-        return msg.channel.send('❌ Failed to send message.');
-      }
-    }
-  
-    // Parse the time correctly
-    const now = new Date();
-    const timeParts = timeString.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    
-    if (!timeParts) {
-      return msg.channel.send('❌ Invalid time format. Use HH:MM AM/PM.');
-    }
-  
-    let hours = parseInt(timeParts[1], 10);
-    let minutes = parseInt(timeParts[2], 10);
-    const period = timeParts[3].toUpperCase();
-  
-    if (period === "PM" && hours < 12) hours += 12;
-    if (period === "AM" && hours === 12) hours = 0;
-  
-    const sendTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-  
-    // If the time has already passed today, schedule for tomorrow
-    if (sendTime < now) sendTime.setDate(sendTime.getDate() + 1);
-  
-    const delay = sendTime.getTime() - now.getTime();
-  
-    // Validate delay before scheduling
-    if (isNaN(delay) || delay < 0) {
-      return msg.channel.send('❌ Error: Invalid delay calculation.');
-    }
-  
-    console.log(`Current Time: ${now}`);
-    console.log(`Scheduled Time: ${sendTime}`);
-    console.log(`Delay (ms): ${delay}`);
-  
-    setTimeout(async () => {
-      try {
-        await channel.send({ content: messageContent.trim() });
-      } catch (e) {
-        console.error(e);
-        return msg.channel.send('❌ Failed to send message.');
-      }
-    }, delay);
-  
-    msg.channel.send(`✅ Message scheduled for ${sendTime.toLocaleTimeString()}`);
+  const sendMatch = msg.content.match(
+  /^!send\s+(?:<#(\d+)>|(\d{17,20}))\s*(\d{1,2}:\d{2}\s*[APMapm]*)?\s*\n\n([\s\S]*)/
+);
+if (sendMatch && msg.author.id === process.env.OWNER_ID) {
+  const channelId = sendMatch[1] || sendMatch[2];
+  const timeString = sendMatch[3]; // Optional time argument
+  const messageContent = sendMatch[4];
+
+  const channel = await client.channels.fetch(channelId).catch(() => null);
+  if (!channel || !channel.isTextBased()) {
+    return msg.channel.send({ content: '❌ Invalid channel ID.' });
   }
+
+  // Immediate sending if no time is provided
+  if (!timeString) {
+    try {
+      await channel.send({ content: messageContent.trim() });
+      return msg.channel.send({ content: '✅ Message sent immediately.' });
+    } catch (e) {
+      console.error(e);
+      return msg.channel.send({ content: '❌ Failed to send message.' });
+    }
+  }
+
+  // Parse the provided time string
+  const now = new Date();
+  const timeParts = timeString.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!timeParts) {
+    return msg.channel.send({ content: '❌ Invalid time format. Use HH:MM AM/PM.' });
+  }
+
+  let hours = parseInt(timeParts[1], 10);
+  let minutes = parseInt(timeParts[2], 10);
+  const period = timeParts[3].toUpperCase();
+  if (period === "PM" && hours < 12) hours += 12;
+  if (period === "AM" && hours === 12) hours = 0;
+
+  // Create a sendTime for today
+  const sendTime = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    hours,
+    minutes
+  );
+
+  // If sendTime is earlier than now, schedule for the next day
+  if (sendTime < now) sendTime.setDate(sendTime.getDate() + 1);
+  const delay = sendTime.getTime() - now.getTime();
+
+  console.log(`Current Time: ${now}`);
+  console.log(`Scheduled Time: ${sendTime}`);
+  console.log(`Delay (ms): ${delay}`);
+
+  setTimeout(async () => {
+    try {
+      await channel.send({ content: messageContent.trim() });
+      // If you plan to log this scheduled message, use messageContent (or a copy)
+      // rather than message.content (which may be undefined in this callback).
+    } catch (e) {
+      console.error(e);
+      // Note: Avoid using msg.channel.send here if msg is no longer valid.
+    }
+  }, delay);
+
+  msg.channel.send({
+    content: `✅ Message scheduled for ${sendTime.toLocaleTimeString()}`
+  });
+}
   // If no command match, simply return.
   if (!cmdMatch) return;
 
