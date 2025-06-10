@@ -559,8 +559,8 @@ const handlers = {
     
     let data;
     try {
-      // Generate data points from x in [-10, 10] with 100 samples.
-      data = generateDataPoints(evalExpr, [-10, 10], 100);
+      // Generate data points from x in [-10, 10] with 300 samples.
+      data = generateDataPoints(evalExpr, [-10, 10], 300);
     } catch (err) {
       console.error('Error generating data points:', err);
       return msg.channel.send(`❌ Error parsing equation: ${err.message}`);
@@ -576,7 +576,9 @@ const handlers = {
           label: `y = ${displayExpr}`,
           data: data.yValues,
           borderColor: 'blue',
-          fill: false
+          fill: false,
+          pointRadius: 0,  // Remove the dots from the graph
+          tension: 0.3     // Adjust to smooth the curve (0 = straight lines, 1 = very curvy)
         }]
       },
       options: {
