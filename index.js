@@ -9,7 +9,9 @@ const execPromise = util.promisify(exec);
 const cron = require('node-cron');
 const fetch = require('node-fetch');
 const moment = require("moment-timezone");
-const math = require('mathjs'); // npm install mathjs
+const puppeteer = require('puppeteer');
+const fs = require('fs').promises;
+const path = require('path');
 
 async function fetchArticleContent(url) {
   return ''; // placeholder: no content
@@ -40,6 +42,17 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
+
+const sanitizeEquation = (equation) => {
+  let eq = equation.trim();
+  // Normalize the "y =" part (if provided)
+  eq = eq.replace(/^y\s*=\s*/i, 'y=');
+  // Replace mod(...) with |...|
+  eq = eq.replace(/mod\(([^)]+)\)/gi, '|$1|');
+  // Replace sqrt(...) with \sqrt{...}
+  eq = eq.replace(/sqrt\(([^)]+)\)/gi, '\\sqrt{$1}');
+  return eq;
+};
 
 let readyAt;
 
@@ -463,38 +476,61 @@ const handlers = {
   );
 },
   graph: async msg => {
-    // Get the user-provided formula. For example: "!graph x+y" (representing x+y=0)
-    const queryInput = msg.content.slice('!graph'.length).trim();
-    if (!queryInput) {
-      return msg.channel.send("Please provide an expression to graph, e.g. `!graph x+y`.");
-    }
-
-    // Denzven Graphing API expects the formula to "equal zero".
-    // So 'x+y' is interpreted as the equation: x+y=0.
-    // You can adjust parameters such as x and y ranges and grid/plot style.
-    const baseUrl = 'http://denzven.pythonanywhere.com/DenzGraphingApi/v1/flat_graph/test/plot';
-    
-    // Set API parameters:
-    const params = new URLSearchParams();
-    // The Denzven API expects a URL-encoded formula in its query string.
-    params.set('formula', queryInput);
-    // Example parameters: adjust these as needed.
-    params.set('x_coord', '20');  // x-axis range
-    params.set('y_coord', '20');  // y-axis range
-    params.set('grid', '1');      // show grid lines (1 = true)
-    params.set('plot_style', '3');// style selection (0-25 available)
-    
-    // Final URL for the API call:
-    const finalUrl = `${baseUrl}?${params.toString()}`;
-
-    // Create and send an embed with the generated graph image.
-    const embed = new EmbedBuilder()
-      .setTitle(`Graph of: ${queryInput}=0`)
-      .setImage(finalUrl)
-      .setColor(0x3498db)
-      .setFooter({ text: "Powered by Denzven Graphing API" });
+    // Parse the equation from the user's message. 
+    // For example, if the user types:
+    // !graph y = sqrt(1-x^2) + (mod(x) - x)^2
+    // then everything after "!graph" is taken as the equation.
+    const args = msg.content.split(' ').slice(1);
+    if (!args.length)
+      return msg.channel.send('❌ Please provide an equation.');
       
-    return msg.channel.send({ embeds: [embed] });
+    const userEquation = args.join(' ');
+    const sanitizedEquation = sanitizeEquation(userEquation);
+
+    try {
+      // Read the HTML template which is assumed to be at the repository root.
+      const templatePath = path.join(__dirname, '..', 'desmos_graph.html');
+      let htmlContent = await fs.readFile(templatePath, 'utf8');
+      
+      // Replace the placeholder (%%EQUATION%%) with the sanitized equation.
+      htmlContent = htmlContent.replace('%%EQUATION%%', sanitizedEquation);
+      
+      // Write the modified HTML to a temporary file.
+      const tempHtmlPath = path.join(__dirname, '..', 'tmp_desmos_graph.html');
+      await fs.writeFile(tempHtmlPath, htmlContent, 'utf8');
+      
+      // Launch Puppeteer in headless mode.
+      const browser = await puppeteer.launch({
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+      });
+      const page = await browser.newPage();
+      const fileUrl = 'file://' + tempHtmlPath;
+      
+      // Navigate to the temporary HTML page (which now uses the user&apos;s equation).
+      await page.goto(fileUrl, { waitUntil: 'networkidle2' });
+      
+      // Wait for the Desmos calculator element to render.
+      await page.waitForSelector('#calculator', { timeout: 5000 }).catch(() => {});
+      // Extra wait to ensure full rendering.
+      await page.waitForTimeout(2000);
+      
+      // Take a screenshot of the rendered graph.
+      const screenshotPath = path.join(__dirname, '..', 'tmp_desmos_graph.png');
+      await page.screenshot({ path: screenshotPath });
+      await browser.close();
+      
+      // Create an embed with the screenshot attached.
+      const embed = new EmbedBuilder()
+        .setTitle('Graph Generated')
+        .setDescription(`Graph for equation: \`${sanitizedEquation}\``)
+        .setColor(0x3498db)
+        .setImage('attachment://tmp_desmos_graph.png');
+      
+      await msg.channel.send({ embeds: [embed], files: [screenshotPath] });
+    } catch (error) {
+      console.error('Error generating graph:', error);
+      msg.channel.send(`❌ Error generating graph: ${error.message}`);
+    }
   },
   mute: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
