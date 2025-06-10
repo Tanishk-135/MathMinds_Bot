@@ -102,7 +102,7 @@ ${text}
     try {
       const response = await fetch(NEWS_API_URL);
       const data = await response.json();
-      console.log('Raw NewsAPI response:', data);
+      console.log('Raw News');
 
       if (data.articles?.length > 0) {
         const { title, url: articleUrl } = data.articles[0];
