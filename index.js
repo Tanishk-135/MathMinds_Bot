@@ -578,7 +578,7 @@ const handlers = {
           borderColor: 'blue',
           fill: false,
           pointRadius: 0,  // Remove the dots from the graph
-          tension: 0.3     // Adjust to smooth the curve (0 = straight lines, 1 = very curvy)
+          tension: 0.3     // Smooth the line
         }]
       },
       options: {
@@ -598,7 +598,7 @@ const handlers = {
     });
     qc.setWidth(800).setHeight(400).setDevicePixelRatio(2);
     
-    // ---- New Short URL Code Begins Here ----
+    // Attempt to get a shortened URL.
     let chartUrl;
     try {
       chartUrl = await qc.getShortUrl();
@@ -606,12 +606,12 @@ const handlers = {
       console.error("Error getting short URL:", err);
       chartUrl = qc.getUrl();
     }
-    // ---- New Short URL Code Ends Here ----
+    console.log("Chart URL:", chartUrl); // Debug log: verify URL in console
     
-    // Build and send the Discord embed.
+    // Build the embed and include a clickable direct link below the image.
     const embed = new EmbedBuilder()
       .setTitle('Graph Generated')
-      .setDescription(`Graph for equation: \`${userInput}\` interpreted as y = ${displayExpr}`)
+      .setDescription(`Graph for equation: \`${userInput}\` interpreted as y = ${displayExpr}\n[Direct Link](${chartUrl})`)
       .setColor(0x3498db)
       .setImage(chartUrl);
     
