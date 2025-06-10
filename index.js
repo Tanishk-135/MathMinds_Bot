@@ -41,15 +41,8 @@ const client = new Client({
 
 let readyAt;
 
-// --------------------
-// First client.once: define helper and immediately‐invoked fetch logic
-// --------------------
-client.once('ready', () => {
-  readyAt = Date.now();
-  console.log(`Logged in as ${client.user.tag}`);
-
-  // Helper: generate Mathy response
-  async function generateMathyResponse(text) {
+// ✅ Move generateMathyResponse OUTSIDE of client.once('ready')
+async function generateMathyResponse(text) {
     const mathPrompt = `
 You are Mathy, the Gen Z MathBot — a chaotic, funny, cracked-at-math AI tutor with meme rizz.
 You're 50% math genius, 50% TikTok goblin, and 100% unhinged.
@@ -95,36 +88,41 @@ ${text}
       console.error('Error generating Mathy response:', e);
       return 'Mathy failed to process news.';
     }
-  }
+}
+
+// --------------------
+// Now client.once('ready') runs AFTER defining generateMathyResponse
+// --------------------
+client.once('ready', async () => {
+  readyAt = Date.now();
+  console.log(`Logged in as ${client.user.tag}`);
 
   // On ready: fetch news, scrape content, pass to Mathy, send to channel
-  (async () => {
-    try {
-      const response = await fetch(NEWS_API_URL);
-      const data = await response.json();
-      console.log('Taking RAW NewsAPI');
+  try {
+    const response = await fetch(NEWS_API_URL);
+    const data = await response.json();
+    console.log('Taking RAW NewsAPI');
 
-      if (data.articles?.length > 0) {
-        const { title, url: articleUrl } = data.articles[0];
-        const excerpt = await fetchArticleContent(articleUrl);
-        const newsText = `Headline:\n"${title}"\n\n${excerpt || 'No content.'}`;
-        const mathyReply = await generateMathyResponse(newsText);
+    if (data.articles?.length > 0) {
+      const { title, url: articleUrl } = data.articles[0];
+      const excerpt = await fetchArticleContent(articleUrl);
+      const newsText = `Headline:\n"${title}"\n\n${excerpt || 'No content.'}`;
+      const mathyReply = await generateMathyResponse(newsText); // ✅ Now this works globally!
 
-        let channel = client.channels.cache.get(SPOTLIGHT_CHANNEL_ID)
-                   || await client.channels.fetch(SPOTLIGHT_CHANNEL_ID);
-        if (!channel?.isTextBased()) {
-          return console.error('Channel not found or not text-based');
-        }
-        await channel.send(`⚡ MathMinds Spotlight! ⚡\n\n${mathyReply}`);
-        console.log('Sent Mathy’s news explanation');
-      } else {
-        console.log('No math news available today.');
+      let channel = client.channels.cache.get(SPOTLIGHT_CHANNEL_ID)
+                 || await client.channels.fetch(SPOTLIGHT_CHANNEL_ID);
+      if (!channel?.isTextBased()) {
+        return console.error('Channel not found or not text-based');
       }
-    } catch (err) {
-      console.error('Error fetching or sending Mathy response:', err);
+      await channel.send(`⚡ MathMinds Spotlight! ⚡\n\n${mathyReply}`);
+      console.log('Sent Mathy’s news explanation');
+    } else {
+      console.log('No math news available today.');
     }
-  })();
-}); // ← closes the first client.once('ready')
+  } catch (err) {
+    console.error('Error fetching or sending Mathy response:', err);
+  }
+});
 
 
 client.on("messageCreate", async (message) => {
