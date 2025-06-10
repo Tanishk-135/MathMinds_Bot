@@ -2,13 +2,6 @@
 require('dotenv').config();
 const { storeMessage, getRecentMessagesWithContext } = require("./redisSetup.js");
 const { Client, GatewayIntentBits, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent, // Required for reading message content
-    ],
-});
 const { GoogleAuth } = require('google-auth-library');
 const { exec } = require('child_process');
 const util = require('util');
@@ -44,6 +37,18 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.MessageContent
   ]
+});
+
+client.on("messageCreate", (message) => {
+    console.log("Message received:", message.content); // Debugging log
+
+    if (!message.content) {
+        console.error("Message content is undefined");
+        return;
+    }
+
+    let userInput = message.content.trim();
+    console.log("User input:", userInput);
 });
 
 let readyAt;
