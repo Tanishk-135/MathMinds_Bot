@@ -157,6 +157,7 @@ client.on("messageCreate", async (message) => {
     } catch (error) {
         console.error("Error sending message:", error);
     }
+});
 
 // --------------------
 // Second client.once: (AI handler registration only, no nesting)
