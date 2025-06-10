@@ -463,108 +463,37 @@ const handlers = {
   );
 },
   graph: async msg => {
-    // Remove the command prefix and trim extra whitespace
-    const args = msg.content.slice('!graph'.length).trim();
-    if (!args) {
-      return msg.channel.send("Please specify a function, e.g. `!graph y = x^2 - 4x + 5`");
+    // Get the user-provided formula. For example: "!graph x+y" (representing x+y=0)
+    const queryInput = msg.content.slice('!graph'.length).trim();
+    if (!queryInput) {
+      return msg.channel.send("Please provide an expression to graph, e.g. `!graph x+y`.");
     }
 
-    // Expect function definitions like: y = [expression]
-    const match = args.match(/y\s*=\s*(.+)/i);
-    if (!match) {
-      return msg.channel.send("Invalid function format. Please use `y = <expression>`.");
-    }
-    const functionExpression = match[1].trim();
-
-    // Generate data points: x-values from -10 to 10 (you can adjust the range or step)
-    const xValues = [];
-    const yValues = [];
-    for (let x = -10; x <= 10; x++) {
-      xValues.push(x);
-      try {
-        // Evaluate the function for current x using mathjs.
-        const y = math.evaluate(functionExpression, { x });
-        yValues.push(y);
-      } catch (err) {
-        // if evaluation fails, push null
-        yValues.push(null);
-      }
-    }
-
-    // Create a QuickChart configuration for a line chart
-    const chartConfig = {
-      type: 'line',
-      data: {
-        labels: xValues, // e.g., [-10, -9, …, 10]
-        datasets: [
-          {
-            label: `y = ${functionExpression}`,
-            data: yValues,
-            fill: false,
-            borderColor: 'blue',
-            pointRadius: 3,
-            tension: 0
-          }
-        ]
-      },
-      options: {
-        backgroundColor: 'white',  // sets chart area background for Chart.js if supported
-        scales: {
-          x: {
-            grid: {
-              color: '#ccc'  // light gray grid lines
-            },
-            title: {
-              display: true,
-              text: 'x',
-              color: 'black'
-            },
-            ticks: {
-              color: 'black'
-            }
-          },
-          y: {
-            grid: {
-              color: '#ccc'
-            },
-            title: {
-              display: true,
-              text: 'y',
-              color: 'black'
-            },
-            ticks: {
-              color: 'black'
-            }
-          }
-        },
-        plugins: {
-          // Annotation plugin configuration:
-          annotation: {
-            annotations: {
-              verticalLine: {
-                type: 'line',
-                scaleID: 'x',   // indicates which x scale to use
-                value: 0,       // places the line at x = 0
-                borderColor: 'black',
-                borderWidth: 2
-              }
-            }
-          }
-        }
-      }
-    };
+    // Denzven Graphing API expects the formula to "equal zero".
+    // So 'x+y' is interpreted as the equation: x+y=0.
+    // You can adjust parameters such as x and y ranges and grid/plot style.
+    const baseUrl = 'http://denzven.pythonanywhere.com/DenzGraphingApi/v1/flat_graph/test/plot';
     
-    // Append &bkg=white to force a white background if needed.
-    const chartUrl = "https://quickchart.io/chart?c=" + encodeURIComponent(JSON.stringify(chartConfig)) + "&bkg=white";
+    // Set API parameters:
+    const params = new URLSearchParams();
+    // The Denzven API expects a URL-encoded formula in its query string.
+    params.set('formula', queryInput);
+    // Example parameters: adjust these as needed.
+    params.set('x_coord', '20');  // x-axis range
+    params.set('y_coord', '20');  // y-axis range
+    params.set('grid', '1');      // show grid lines (1 = true)
+    params.set('plot_style', '3');// style selection (0-25 available)
+    
+    // Final URL for the API call:
+    const finalUrl = `${baseUrl}?${params.toString()}`;
 
-    // Create an embed with the generated chart image
+    // Create and send an embed with the generated graph image.
     const embed = new EmbedBuilder()
-      .setTitle(`Graph of y = ${functionExpression}`)
-      .setImage(chartUrl)
-      .setColor(0x3498db) // You can use a hexadecimal color code or certain constants
-      .setFooter({ text: "Powered by QuickChart" });
-
-    // Send the embed to the Discord channel
+      .setTitle(`Graph of: ${queryInput}=0`)
+      .setImage(finalUrl)
+      .setColor(0x3498db)
+      .setFooter({ text: "Powered by Denzven Graphing API" });
+      
     return msg.channel.send({ embeds: [embed] });
   },
   mute: async msg => {
