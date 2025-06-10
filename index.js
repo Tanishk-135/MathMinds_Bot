@@ -436,41 +436,35 @@ ${prompt}
     // ---------- NEW GRAPH DETECTION CODE ADDED BELOW ----------
     const lowerReply = reply.toLowerCase();
     const graphKeyword = "graph of";
-
+    
     if (lowerReply.includes(graphKeyword)) {
       // Extract everything after the last occurrence of "graph of"
       const index = lowerReply.lastIndexOf(graphKeyword);
       let graphExpr = reply.substring(index + graphKeyword.length).trim();
-
-      // Clean up: Remove Markdown code block markers and placeholder phrase.
+    
+      // Clean up: remove markdown code block markers and the placeholder text "graph will be generated below"
       graphExpr = graphExpr.replace(/```/g, '').trim();
       graphExpr = graphExpr.replace(/graph will be generated below\.?/ig, '').trim();
-
-      // If nothing remains, try to fallback to a backtick-enclosed expression.
+    
+      // If nothing useful remains, try to fallback: extract from the first backtick-enclosed substring
       if (!graphExpr) {
         const match = reply.match(/`([^`]+)`/);
         if (match && match[1]) {
           graphExpr = match[1].trim();
         }
       }
-
-      // Validate that the extracted text looks like a mathematical expression.
-      if (graphExpr && /[0-9a-zA-Z+\-*/^()]/.test(graphExpr)) {
-        try {
-          // Validate the expression using math.js
-          math.compile(graphExpr);
-        } catch (err) {
-          console.log("Graph expression is not valid. Skipping graph generation.");
-          return;  // Exit if invalid.
-        }
-
-        // Generate the graph embed.
+    
+      // Validate: we only want simple expressions like "5x" or "3x"
+      const simplePattern = /^[-+]?(\d+(\.\d+)?\s*)?x$/i;
+      if (!graphExpr || !simplePattern.test(graphExpr)) {
+        console.log("Extracted graph expression does not match expected simple format (e.g., '5x' or '3x'). Skipping graph generation.");
+      } else {
+        // Expression looks good; generate the graph.
         try {
           const chartUrl = await generateGraphUrl(graphExpr);
-          // Build the embed.
           const embed = new EmbedBuilder()
             .setTitle('Graph Generated')
-            // Only set the description if the chartUrl is reasonably short (under 4000 characters)
+            // Only set the description if the chartUrl is short enough
             .setDescription(chartUrl.length < 4000 ? `[Direct Link to Graph](${chartUrl})` : '')
             .setColor(0x3498db)
             .setImage(chartUrl);
@@ -479,8 +473,6 @@ ${prompt}
           console.error("Graph generation error:", err);
           await msg.channel.send("❌ Sorry, there was an error generating the graph.");
         }
-      } else {
-        console.log("No valid graph expression detected after 'graph of'.");
       }
     }
     // ---------- END OF NEW GRAPH CODE ----------
