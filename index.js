@@ -39,40 +39,6 @@ const client = new Client({
   ]
 });
 
-client.on("messageCreate", async (message) => {
-    if (message.author.bot) return; // Ignore bot messages
-
-    console.log("Message received:", message.content); // Debugging log
-
-    if (!message.content) {
-        console.error("Message content is undefined");
-        return;
-    }
-
-    // Declare userInput only once
-    const userInput = message.content.trim();
-    console.log("User input:", userInput);
-
-    // Generate bot response
-    const botResponse = generateMathyResponse(userInput); // Ensure this function returns a valid string
-
-    if (!botResponse || botResponse.trim() === "") {
-        console.error("Bot response is undefined or empty.");
-        return;
-    }
-
-    try {
-        // ✅ Fix chunking issue using `.slice()` instead of `.match()`
-        const chunkSize = 2000;
-        for (let i = 0; i < botResponse.length; i += chunkSize) {
-            await message.channel.send(botResponse.slice(i, i + chunkSize));
-        }
-
-    } catch (error) {
-        console.error("Error sending message:", error);
-    }
-});
-
 let readyAt;
 
 // --------------------
@@ -159,6 +125,41 @@ ${text}
     }
   })();
 }); // ← closes the first client.once('ready')
+
+
+client.on("messageCreate", async (message) => {
+    if (message.author.bot) return; // Ignore bot messages
+
+    console.log("Message received:", message.content); // Debugging log
+
+    if (!message.content) {
+        console.error("Message content is undefined");
+        return;
+    }
+
+    // Declare userInput only once
+    const userInput = message.content.trim();
+    console.log("User input:", userInput);
+
+    // Generate bot response
+    const botResponse = generateMathyResponse(userInput); // Ensure this function returns a valid string
+
+    if (!botResponse || botResponse.trim() === "") {
+        console.error("Bot response is undefined or empty.");
+        return;
+    }
+
+    try {
+        // ✅ Fix chunking issue using `.slice()` instead of `.match()`
+        const chunkSize = 2000;
+        for (let i = 0; i < botResponse.length; i += chunkSize) {
+            await message.channel.send(botResponse.slice(i, i + chunkSize));
+        }
+
+    } catch (error) {
+        console.error("Error sending message:", error);
+    }
+});
 
 // --------------------
 // Second client.once: (AI handler registration only, no nesting)
