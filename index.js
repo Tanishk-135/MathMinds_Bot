@@ -2,6 +2,13 @@
 require('dotenv').config();
 const { storeMessage, getRecentMessagesWithContext } = require("./redisSetup.js");
 const { Client, GatewayIntentBits, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent, // Required for reading message content
+    ],
+});
 const { GoogleAuth } = require('google-auth-library');
 const { exec } = require('child_process');
 const util = require('util');
