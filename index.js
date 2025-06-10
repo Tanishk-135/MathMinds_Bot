@@ -501,19 +501,19 @@ const handlers = {
           data: yValues,
           fill: false,
           borderColor: 'blue',
+          pointRadius: 3, // Makes points more visible
           tension: 0
         }]
       },
       options: {
-        // Set a light background for the chart area.
         plugins: {
-          chartArea: {
-            backgroundColor: 'white'
-          },
-          // Annotation plugin to draw a vertical line at x=0.
+          // Explicitly set the chart background to white
+          chartAreaBackgroundColor: 'white',
+    
+          // Annotation plugin for the central y-axis line
           annotation: {
             annotations: {
-              centerLine: {
+              yAxisCenter: {
                 type: 'line',
                 xMin: 0,
                 xMax: 0,
@@ -526,7 +526,7 @@ const handlers = {
         scales: {
           x: {
             grid: {
-              color: '#ccc' // Light gray grid lines.
+              color: '#ccc' // Light gray grid lines
             },
             title: {
               display: true,
@@ -540,12 +540,17 @@ const handlers = {
             title: {
               display: true,
               text: 'y'
+            },
+            ticks: {
+              color: 'black' // Ensures visible tick marks
             }
           }
-        }
+        },
+        backgroundColor: 'white' // Set explicit chart background color
       }
     };
     
+    // Generate the QuickChart URL with this updated config
     const chartUrl = "https://quickchart.io/chart?c=" + encodeURIComponent(JSON.stringify(chartConfig));
 
     // Create an embed with the generated chart image
