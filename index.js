@@ -352,24 +352,33 @@ const handlers = {
     msg.channel.send(`👤 ${user.tag}\n🆔 ${user.id}\n📅 Created: ${user.createdAt.toDateString()}`);
   },
   clear: async msg => {
-    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) 
+    // Check for permissions.
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages))
         return msg.channel.send('❌ No permission.');
 
-    const count = parseInt(msg.content.trim().split(/\s+/)[1]); // Handles extra spaces
+    // Parse the command and extract the count.
+    const args = msg.content.trim().split(/\s+/);
+    const count = parseInt(args[1]);
 
-    if (isNaN(count) || count < 1 || count > 100) 
+    // Validate the count.
+    if (isNaN(count) || count < 1 || count > 100)
         return msg.channel.send('⚠️ Provide a number between 1 and 100.');
 
     try {
-        // ✅ Step 1: Delete requested messages (max 100)
-        await msg.channel.bulkDelete(Math.min(count, 100), true);
+        // First, delete the specified number of messages above the command message.
+        await msg.channel.bulkDelete(count, true);
 
-        // ✅ Step 2: Delete the command message separately after a short delay
+        // Then delete the command message itself after a short delay.
         setTimeout(() => {
-            msg.delete().catch(console.error);
-        }, 1000);
-    } catch (e) {
-        console.error(e);
+            msg.delete().catch(error => {
+                // If the error is that the message no longer exists, ignore it.
+                if (error.code !== 10008) {
+                    console.error("Error deleting the command message:", error);
+                }
+            });
+        }, 1000); // Adjust delay as needed
+    } catch (error) {
+        console.error(error);
         msg.channel.send('❌ Delete failed.');
     }
 },
