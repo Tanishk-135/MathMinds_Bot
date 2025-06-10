@@ -352,37 +352,118 @@ const handlers = {
     msg.channel.send(`👤 ${user.tag}\n🆔 ${user.id}\n📅 Created: ${user.createdAt.toDateString()}`);
   },
   clear: async msg => {
-    // Check user permissions.
-    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages))
-        return msg.channel.send('❌ No permission.');
-
-    // Parse and validate the count. The provided number should be between 1 and 100.
-    const args = msg.content.trim().split(/\s+/);
-    const count = parseInt(args[1]);
-    if (isNaN(count) || count < 1 || count > 100)
-        return msg.channel.send('⚠️ Provide a number between 1 and 100.');
-
-    try {
-        // Fetch (count + 1) messages so that the command message is included.
-        const fetched = await msg.channel.messages.fetch({ limit: count + 1 });
-        // Filter out the command message itself, leaving exactly `count` messages.
-        const messagesToDelete = fetched.filter(m => m.id !== msg.id).first(count);
-
-        // Bulk delete the filtered messages.
-        await msg.channel.bulkDelete(messagesToDelete, true);
-
-        // After a short delay, delete the command message separately
-        setTimeout(() => {
-            msg.delete().catch(err => {
-                // Ignore error if the message is already deleted.
-                if (err.code !== 10008) console.error("Error deleting the command message:", err);
-            });
-        }, 100);
-    } catch (error) {
-        console.error(error);
-        msg.channel.send('❌ Delete failed.');
+      // Check user permissions.
+      if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages))
+          return msg.channel.send('❌ No permission.');
+  
+      // Parse and validate the count. The provided number should be between 1 and 100.
+      const args = msg.content.trim().split(/\s+/);
+      const count = parseInt(args[1]);
+      if (isNaN(count) || count < 1 || count > 100)
+          return msg.channel.send('⚠️ Provide a number between 1 and 100.');
+  
+      try {
+          // Fetch (count + 1) messages so that the command message is included.
+          const fetched = await msg.channel.messages.fetch({ limit: count + 1 });
+          // Filter out the command message itself, leaving exactly `count` messages.
+          const messagesToDelete = fetched.filter(m => m.id !== msg.id).first(count);
+  
+          // Bulk delete the filtered messages.
+          await msg.channel.bulkDelete(messagesToDelete, true);
+  
+          // After a short delay, delete the command message separately
+          setTimeout(() => {
+              msg.delete().catch(err => {
+                  // Ignore error if the message is already deleted.
+                  if (err.code !== 10008) console.error("Error deleting the command message:", err);
+              });
+          }, 100);
+      } catch (error) {
+          console.error(error);
+          msg.channel.send('❌ Delete failed.');
+      }
+  },
+  send: async msg => {
+      // Only owner can run this command.
+      if (msg.author.id !== process.env.OWNER_ID)
+        return msg.channel.send("❌ You do not have permission for this command.");
+  
+      // Expect the format: !send #channelname 11:50 PM IST
+      // (an empty line follows) then message content
+      const sendMatch = msg.content.match(
+        /^!send\s+(?:<#(\d+)>|(#\S+))\s+(\d{1,2}:\d{2})\s+(AM|PM)\s+(\S+)\s*\n\n([\s\S]*)$/i
+      );
+      if (!sendMatch)
+        return msg.channel.send(
+          "❌ Incorrect format. Usage:\n```\n!send #channelname 11:50 PM IST\n\nmessage content here\n```"
+        );
+  
+      // Extract groups
+      const channelIdFromMention = sendMatch[1];
+      const channelNameText = sendMatch[2];
+      const timePart = sendMatch[3];
+      const meridiem = sendMatch[4].toUpperCase();
+      const tzAbbr = sendMatch[5];
+      const messageContent = sendMatch[6].trim();
+  
+      // Resolve the target channel.
+      let targetChannel;
+      if (channelIdFromMention) {
+        targetChannel = await msg.client.channels.fetch(channelIdFromMention).catch(() => null);
+      } else if (channelNameText) {
+        // Remove the '#' prefix if present.
+        const channelName = channelNameText.startsWith('#') ? channelNameText.slice(1) : channelNameText;
+        targetChannel = msg.guild.channels.cache.find(
+          c => c.name === channelName && c.isTextBased()
+        );
+      }
+      if (!targetChannel || !targetChannel.isTextBased())
+        return msg.channel.send("❌ Invalid channel.");
+  
+      // Map timezone abbreviations to IANA timezone names.
+      const tzMap = {
+        IST: "Asia/Kolkata",
+        EST: "America/New_York",
+        PST: "America/Los_Angeles"
+        // Add more mappings as needed.
+      };
+      const timezone = tzMap[tzAbbr.toUpperCase()] || tzAbbr;
+  
+      // Build a datetime string for today in the given timezone.
+      const todayStr = moment().tz(timezone).format("YYYY-MM-DD");
+      const dateTimeStr = `${todayStr} ${timePart} ${meridiem}`;
+      const scheduledMoment = moment.tz(dateTimeStr, "YYYY-MM-DD hh:mm A", timezone);
+      if (!scheduledMoment.isValid())
+        return msg.channel.send("❌ Invalid scheduled time.");
+  
+      // Calculate the delay (in milliseconds) until the scheduled time.
+      const now = moment();
+      const delay = scheduledMoment.diff(now);
+  
+      // If the time is past, send immediately.
+      if (delay <= 0) {
+        try {
+          await targetChannel.send(messageContent);
+          return msg.channel.send("Message sent immediately (time was in the past).");
+        } catch (e) {
+          console.error(e);
+          return msg.channel.send("❌ Failed to send message immediately.");
+        }
+      } else {
+        // Schedule the message to be sent.
+        setTimeout(async () => {
+          try {
+            await targetChannel.send(messageContent);
+          } catch (error) {
+            console.error("Scheduled message error:", error);
+          }
+        }, delay);
+        return msg.channel.send(
+          `Message scheduled for ${scheduledMoment.format("YYYY-MM-DD hh:mm A z")}`
+        );
+      }
     }
-},
+  },
   mute: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
     const m = msg.mentions.members.first();
