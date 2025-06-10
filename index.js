@@ -43,6 +43,7 @@ let readyAt;
 
 // ✅ Move generateMathyResponse OUTSIDE of client.once('ready')
 async function generateMathyResponse(text) {
+    console.log('Inside, is message defined?', typeof message, messsage);
     const mathPrompt = `
 You are Mathy, the Gen Z MathBot — a chaotic, funny, cracked-at-math AI tutor with meme rizz.
 You're 50% math genius, 50% TikTok goblin, and 100% unhinged.
@@ -142,10 +143,13 @@ client.on("messageCreate", async (message) => {
 
     try {
         // ✅ Debug message existence before calling generateMathyResponse
-        console.log("Is message still defined before response generation?", typeof message);
+        console.log("Is message defined before calling generateMathyResponse?", typeof message, message);
 
-        // ✅ Generate bot response, passing `message` explicitly if needed
+        // ✅ Generate bot response, passing `message` explicitly
         const botResponse = await generateMathyResponse(userInput, message); // ✅ Ensure this is awaited
+
+        // ✅ Debug message existence after calling generateMathyResponse
+        console.log("Is message defined after calling generateMathyResponse?", typeof message, message);
 
         // ✅ Check if botResponse is valid
         if (!botResponse || typeof botResponse !== "string") {
