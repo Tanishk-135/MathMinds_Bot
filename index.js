@@ -500,24 +500,43 @@ const handlers = {
           label: `y = ${functionExpression}`,
           data: yValues,
           fill: false,
-          borderColor: 'blue'
+          borderColor: 'blue',
+          tension: 0
         }]
       },
       options: {
-        title: {
-          display: true,
-          text: `Graph of y = ${functionExpression}`
+        // Set a light background for the chart area.
+        plugins: {
+          chartArea: {
+            backgroundColor: 'white'
+          },
+          // Annotation plugin to draw a vertical line at x=0.
+          annotation: {
+            annotations: {
+              centerLine: {
+                type: 'line',
+                xMin: 0,
+                xMax: 0,
+                borderColor: 'black',
+                borderWidth: 2
+              }
+            }
+          }
         },
         scales: {
           x: {
-            display: true,
+            grid: {
+              color: '#ccc' // Light gray grid lines.
+            },
             title: {
               display: true,
               text: 'x'
             }
           },
           y: {
-            display: true,
+            grid: {
+              color: '#ccc'
+            },
             title: {
               display: true,
               text: 'y'
@@ -526,8 +545,7 @@ const handlers = {
         }
       }
     };
-
-    // Generate the QuickChart URL by encoding the chart configuration as a query parameter
+    
     const chartUrl = "https://quickchart.io/chart?c=" + encodeURIComponent(JSON.stringify(chartConfig));
 
     // Create an embed with the generated chart image
