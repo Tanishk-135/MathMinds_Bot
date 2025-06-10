@@ -436,12 +436,24 @@ ${prompt}
     // ---------- NEW GRAPH DETECTION CODE ADDED BELOW ----------
     const lowerReply = reply.toLowerCase();
     const graphKeyword = "graph of";
-    
+
     if (lowerReply.includes(graphKeyword)) {
       // Extract everything after the last occurrence of "graph of"
       const index = lowerReply.lastIndexOf(graphKeyword);
       let graphExpr = reply.substring(index + graphKeyword.length).trim();
-    
+
+      // Clean up: Remove Markdown code block markers and placeholder phrase.
+      graphExpr = graphExpr.replace(/```/g, '').trim();
+      graphExpr = graphExpr.replace(/graph will be generated below\.?/ig, '').trim();
+
+      // If nothing remains, try to fallback to a backtick-enclosed expression.
+      if (!graphExpr) {
+        const match = reply.match(/`([^`]+)`/);
+        if (match && match[1]) {
+          graphExpr = match[1].trim();
+        }
+      }
+
       // Validate that the extracted text looks like a mathematical expression.
       if (graphExpr && /[0-9a-zA-Z+\-*/^()]/.test(graphExpr)) {
         try {
@@ -451,7 +463,7 @@ ${prompt}
           console.log("Graph expression is not valid. Skipping graph generation.");
           return;  // Exit if invalid.
         }
-    
+
         // Generate the graph embed.
         try {
           const chartUrl = await generateGraphUrl(graphExpr);
