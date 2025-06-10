@@ -44,7 +44,10 @@ const client = new Client({
 
 function sanitizeForEvaluation(input) {
   let eq = input.trim();
-  // Convert inverse trig notation
+  // Replace the multiplication dot with an asterisk for evaluation.
+  eq = eq.replace(/⋅/g, '*');
+  // Convert ln( ) to log( ) for mathjs and handle inverse trig.
+  eq = eq.replace(/ln\(/gi, 'log(')
   eq = eq.replace(/sin\^-1/gi, 'asin')
          .replace(/cos\^-1/gi, 'acos')
          .replace(/tan\^-1/gi, 'atan');
