@@ -352,31 +352,32 @@ const handlers = {
     msg.channel.send(`👤 ${user.tag}\n🆔 ${user.id}\n📅 Created: ${user.createdAt.toDateString()}`);
   },
   clear: async msg => {
-    // Check for permissions.
+    // Check user permissions.
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages))
         return msg.channel.send('❌ No permission.');
 
-    // Parse the command and extract the count.
+    // Parse and validate the count. The provided number should be between 1 and 100.
     const args = msg.content.trim().split(/\s+/);
     const count = parseInt(args[1]);
-
-    // Validate the count.
     if (isNaN(count) || count < 1 || count > 100)
         return msg.channel.send('⚠️ Provide a number between 1 and 100.');
 
     try {
-        // First, delete the specified number of messages above the command message.
-        await msg.channel.bulkDelete(count, true);
+        // Fetch (count + 1) messages so that the command message is included.
+        const fetched = await msg.channel.messages.fetch({ limit: count + 1 });
+        // Filter out the command message itself, leaving exactly `count` messages.
+        const messagesToDelete = fetched.filter(m => m.id !== msg.id).first(count);
 
-        // Then delete the command message itself after a short delay.
+        // Bulk delete the filtered messages.
+        await msg.channel.bulkDelete(messagesToDelete, true);
+
+        // After a short delay, delete the command message separately
         setTimeout(() => {
-            msg.delete().catch(error => {
-                // If the error is that the message no longer exists, ignore it.
-                if (error.code !== 10008) {
-                    console.error("Error deleting the command message:", error);
-                }
+            msg.delete().catch(err => {
+                // Ignore error if the message is already deleted.
+                if (err.code !== 10008) console.error("Error deleting the command message:", err);
             });
-        }, 1000); // Adjust delay as needed
+        }, 100);
     } catch (error) {
         console.error(error);
         msg.channel.send('❌ Delete failed.');
