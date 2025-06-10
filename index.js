@@ -539,8 +539,7 @@ const handlers = {
 
     // Send the embed to the Discord channel
     return msg.channel.send({ embeds: [embed] });
-  }
-},
+  },
   mute: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
     const m = msg.mentions.members.first();
