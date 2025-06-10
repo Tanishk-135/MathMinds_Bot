@@ -43,7 +43,7 @@ let readyAt;
 
 // ✅ Move generateMathyResponse OUTSIDE of client.once('ready')
 async function generateMathyResponse(text) {
-    console.log('Inside, is message defined?', typeof message, messsage);
+    console.log('Inside, is message defined?', typeof message, message);
     const mathPrompt = `
 You are Mathy, the Gen Z MathBot — a chaotic, funny, cracked-at-math AI tutor with meme rizz.
 You're 50% math genius, 50% TikTok goblin, and 100% unhinged.
