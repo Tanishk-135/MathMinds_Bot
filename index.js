@@ -304,7 +304,12 @@ client.on('messageCreate', async msg => {
     console.log("Bot response before storing:", botResponse); // Debugging log
     
     // ✅ Store Mathy's response in Redis & PostgreSQL
-    const safeBotResponse = botResponse.trim() !== "" ? botResponse.trim() : "EMPTY_MESSAGE";
+    if (message.content) {
+        let userInput = message.content.trim();
+        // Proceed with processing
+    } else {
+        console.error("Message content is undefined");
+    }
     await storeMessage(msg.author.id, "bot", safeBotResponse, "discord");
 
     // Now, store Mathy’s reply as a bot message.
