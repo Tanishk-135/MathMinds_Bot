@@ -284,117 +284,57 @@ ${prompt}
 };
 
 client.on('messageCreate', async msg => {
-  // Skip messages from bots or during startup grace period
   if (msg.author.bot || Date.now() - readyAt < STARTUP_IGNORE) return;
-
   const mention = msg.mentions.has(client.user);
   const cmdMatch = msg.content.match(/^!(\w+)/);
 
-  // If Mathy is mentioned (without a command), handle it as a chat prompt.
   if (mention && !cmdMatch) {
     console.log(`AI Activated | Time: ${new Date().toLocaleString()}`);
+  
     const userId = msg.author.id;
-
-    // First, store the user’s message in the database.
-    await storeMessage(userId, "user", msg.content);
-
-    // Call handlePrompt(msg) to generate Mathy's response.
-    // IMPORTANT: Ensure that handlePrompt returns the reply text.
-    const botResponse = await handlePrompt(msg);
-    console.log("Bot response before storing:", botResponse); // Debugging log
-    
-    // ✅ Store Mathy's response in Redis & PostgreSQL
-    await storeMessage(msg.author.id, "bot", botResponse, "discord");
-
-    // Now, store Mathy’s reply as a bot message.
-    await storeMessage(userId, "bot", botResponse, "discord");
-
-    // Finally, send the response to Discord.
-    return msg.channel.send(botResponse);
+    const userMessage = msg.content;
+  
+    // ✅ Store user message in Redis & PostgreSQL
+    await storeMessage(userId, "user", userMessage);
+  
+    return handlePrompt(msg);
   }
 
   // Custom send command for owner (supports channel ID or channel mention)
-  const sendMatch = msg.content.match(/^!send\s+(?:<#(\d+)>|(\d{17,20}))\s*(\d{1,2}:\d{2}\s*[APMapm]*)?\s*\n\n([\s\S]*)/);
+  const sendMatch = msg.content.match(/^!send\s+(?:<#(\d+)>|(\d{17,20}))\s*\n\n([\s\S]*)/);
   if (sendMatch && msg.author.id === process.env.OWNER_ID) {
     const channelId = sendMatch[1] || sendMatch[2];
-    const timeString = sendMatch[3]; // Optional time argument
-    const messageContent = sendMatch[4];
-  
+    const messageContent = sendMatch[3];
     const channel = await client.channels.fetch(channelId).catch(() => null);
     if (!channel || !channel.isTextBased()) return msg.channel.send('❌ Invalid channel ID.');
-  
-    if (!timeString) {
-      // No time provided, send immediately
-      try {
-        await channel.send(messageContent.trim());
-        return msg.channel.send('✅ Message sent immediately.');
-      } catch (e) {
-        console.error(e);
-        return msg.channel.send('❌ Failed to send message.');
-      }
+    try {
+      await channel.send(messageContent.trim());
+    } catch (e) {
+      console.error(e);
+      return msg.channel.send('❌ Failed to send message.');
     }
-  
-    // Parse the time correctly
-    const now = new Date();
-    const timeParts = timeString.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    
-    if (!timeParts) {
-      return msg.channel.send('❌ Invalid time format. Use HH:MM AM/PM.');
-    }
-  
-    let hours = parseInt(timeParts[1], 10);
-    let minutes = parseInt(timeParts[2], 10);
-    const period = timeParts[3].toUpperCase();
-  
-    if (period === "PM" && hours < 12) hours += 12;
-    if (period === "AM" && hours === 12) hours = 0;
-  
-    const sendTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-  
-    // If the time has already passed today, schedule for tomorrow
-    if (sendTime < now) sendTime.setDate(sendTime.getDate() + 1);
-  
-    const delay = sendTime.getTime() - now.getTime();
-  
-    // Validate delay before scheduling
-    if (isNaN(delay) || delay < 0) {
-      return msg.channel.send('❌ Error: Invalid delay calculation.');
-    }
-  
-    console.log(`Current Time: ${now}`);
-    console.log(`Scheduled Time: ${sendTime}`);
-    console.log(`Delay (ms): ${delay}`);
-  
-    setTimeout(async () => {
-      try {
-        await channel.send(messageContent.trim());
-      } catch (e) {
-        console.error(e);
-        return msg.channel.send('❌ Failed to send message.');
-      }
-    }, delay);
-  
-    msg.channel.send(`✅ Message scheduled for ${sendTime.toLocaleTimeString()}`);
   }
-  // If no command match, simply return.
+
   if (!cmdMatch) return;
 
-  // For commands, get the corresponding handler.
   const cmd = cmdMatch[1].toLowerCase();
   const handler = handlers[cmd];
   if (handler) {
-    // Execute the command handler, which should return Mathy's reply as text.
     const botResponse = await handler(msg);
-    // Store Mathy's response
+  
+    // ✅ Store Mathy's response in Redis & PostgreSQL
     await storeMessage(msg.author.id, "bot", botResponse, "discord");
-    return msg.channel.send(botResponse);
+  
+    return botResponse;
   }
-
-  // If command isn't recognized, reply with an unknown command message.
-  const unknownResponse = '❓ Unknown command. See !help.';
-  await storeMessage(msg.author.id, "bot", unknownResponse, "discord");
-  return msg.channel.send(unknownResponse);
+  
+  const botResponse = '❓ Unknown command. See !help.';
+  msg.channel.send(botResponse);
+  
+  // ✅ Store Mathy's response in Redis & PostgreSQL
+  await storeMessage(msg.author.id, "bot", botResponse, "discord");
 });
+
 // --------------------
 // Command Handlers
 // --------------------
