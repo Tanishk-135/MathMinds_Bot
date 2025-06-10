@@ -140,24 +140,23 @@ client.on("messageCreate", async (message) => {
     console.log("User input:", userInput);
 
     // Generate bot response
-    const botResponse = generateMathyResponse(userInput); // Ensure this function returns a valid string
+    const botResponse = await generateMathyResponse(userInput); // ✅ Use `await` to get the actual response
 
-    if (!botResponse || botResponse.trim() === "") {
-        console.error("Bot response is undefined or empty.");
+    // ✅ Check if botResponse is undefined or not a string
+    if (!botResponse || typeof botResponse !== "string") {
+        console.error("Error: botResponse is not a valid string:", botResponse);
         return;
     }
-
+    
     try {
         // ✅ Fix chunking issue using `.slice()` instead of `.match()`
         const chunkSize = 2000;
         for (let i = 0; i < botResponse.length; i += chunkSize) {
             await message.channel.send(botResponse.slice(i, i + chunkSize));
         }
-
     } catch (error) {
         console.error("Error sending message:", error);
     }
-});
 
 // --------------------
 // Second client.once: (AI handler registration only, no nesting)
