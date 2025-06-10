@@ -426,36 +426,38 @@ ${prompt}
     reply = formatMathText(reply);
 
     const chunks = reply.match(/[^]{1,1900}(?=\n|\s|$)/g) || [];
+    // After your chunk loop:
     for (const chunk of chunks) {
       await msg.channel.send(chunk.trim());
     }
-
+    
     // ---------- NEW GRAPH DETECTION CODE ADDED BELOW ----------
-    // Check if the reply includes "graph of"
     const lowerReply = reply.toLowerCase();
     const graphKeyword = "graph of";
-
+    
     if (lowerReply.includes(graphKeyword)) {
       // Extract everything after the last occurrence of "graph of"
       const index = lowerReply.lastIndexOf(graphKeyword);
       let graphExpr = reply.substring(index + graphKeyword.length).trim();
-
+    
       // Validate that the extracted text looks like a mathematical expression.
       if (graphExpr && /[0-9a-zA-Z+\-*/^()]/.test(graphExpr)) {
         try {
-          // Attempt to compile the expression to double-check it’s valid (using math.js)
+          // Validate the expression using math.js
           math.compile(graphExpr);
         } catch (err) {
           console.log("Graph expression is not valid. Skipping graph generation.");
-          return;  // Exit if the expression is invalid.
+          return;  // Exit if invalid.
         }
-
-        // If valid, generate the graph.
+    
+        // Generate the graph embed.
         try {
           const chartUrl = await generateGraphUrl(graphExpr);
+          // Build the embed.
           const embed = new EmbedBuilder()
             .setTitle('Graph Generated')
-            .setDescription(`[Direct Link to Graph](${chartUrl})`)
+            // Only set the description if the chartUrl is reasonably short (under 4000 characters)
+            .setDescription(chartUrl.length < 4000 ? `[Direct Link to Graph](${chartUrl})` : '')
             .setColor(0x3498db)
             .setImage(chartUrl);
           await msg.channel.send({ embeds: [embed] });
@@ -468,6 +470,8 @@ ${prompt}
       }
     }
     // ---------- END OF NEW GRAPH CODE ----------
+    
+
   } catch (e) {
     console.error(e);
     return msg.channel.send('⚠️ Failed to get AI response.');
