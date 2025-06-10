@@ -40,10 +40,6 @@ const client = new Client({
 });
 
 client.on("messageCreate", (message) => {
-    if (message.author.bot) return; // Ignore bot messages
-});
-
-client.on("messageCreate", (message) => {
     console.log("Message received:", message.content); // Debugging log
 
     if (!message.content) {
@@ -59,6 +55,23 @@ client.on("messageCreate", (message) => {
     console.log("Bot response before storing:", botResponse);
 
     message.reply(botResponse); // Send the response
+    
+    if (message.author.bot) return; // Ignore bot messages
+    let userInput = message.content.trim();
+    console.log("User input:", userInput);
+
+    let botResponse = generateResponse(userInput); // Ensure this function returns a valid string
+
+    if (!botResponse || botResponse.trim() === "") {
+        console.error("Bot response is undefined or empty.");
+        return;
+    }
+
+    try {
+        await message.reply(botResponse);
+    } catch (error) {
+        console.error("Error sending message:", error);
+    }
 });
 
 let readyAt;
