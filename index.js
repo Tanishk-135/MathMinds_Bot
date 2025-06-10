@@ -1,7 +1,7 @@
 // Load environment variables from the .env file
 require('dotenv').config();
 const { storeMessage, getRecentMessagesWithContext } = require("./redisSetup.js");
-const { Client, GatewayIntentBits, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionFlagsBits, EmbedBuilder, MessageEmbed } = require('discord.js');
 const { GoogleAuth } = require('google-auth-library');
 const { exec } = require('child_process');
 const util = require('util');
@@ -9,6 +9,7 @@ const execPromise = util.promisify(exec);
 const cron = require('node-cron');
 const fetch = require('node-fetch');
 const moment = require("moment-timezone");
+const math = require('mathjs'); // npm install mathjs
 
 async function fetchArticleContent(url) {
   return ''; // placeholder: no content
@@ -460,6 +461,85 @@ const handlers = {
   return msg.channel.send(
     `Message scheduled for ${scheduledMoment.format("YYYY-MM-DD hh:mm A z")}`
   );
+},
+  graph: async msg => {
+    // Remove the command prefix and trim extra whitespace
+    const args = msg.content.slice('!graph'.length).trim();
+    if (!args) {
+      return msg.channel.send("Please specify a function, e.g. `!graph y = x^2 - 4x + 5`");
+    }
+
+    // Expect function definitions like: y = [expression]
+    const match = args.match(/y\s*=\s*(.+)/i);
+    if (!match) {
+      return msg.channel.send("Invalid function format. Please use `y = <expression>`.");
+    }
+    const functionExpression = match[1].trim();
+
+    // Generate data points: x-values from -10 to 10 (you can adjust the range or step)
+    const xValues = [];
+    const yValues = [];
+    for (let x = -10; x <= 10; x++) {
+      xValues.push(x);
+      try {
+        // Evaluate the function for current x using mathjs.
+        const y = math.evaluate(functionExpression, { x });
+        yValues.push(y);
+      } catch (err) {
+        // if evaluation fails, push null
+        yValues.push(null);
+      }
+    }
+
+    // Create a QuickChart configuration for a line chart
+    const chartConfig = {
+      type: 'line',
+      data: {
+        labels: xValues,
+        datasets: [{
+          label: `y = ${functionExpression}`,
+          data: yValues,
+          fill: false,
+          borderColor: 'blue'
+        }]
+      },
+      options: {
+        title: {
+          display: true,
+          text: `Graph of y = ${functionExpression}`
+        },
+        scales: {
+          x: {
+            display: true,
+            title: {
+              display: true,
+              text: 'x'
+            }
+          },
+          y: {
+            display: true,
+            title: {
+              display: true,
+              text: 'y'
+            }
+          }
+        }
+      }
+    };
+
+    // Generate the QuickChart URL by encoding the chart configuration as a query parameter
+    const chartUrl = "https://quickchart.io/chart?c=" + encodeURIComponent(JSON.stringify(chartConfig));
+
+    // Create an embed with the generated chart image
+    const embed = new MessageEmbed()
+      .setTitle(`Graph of y = ${functionExpression}`)
+      .setImage(chartUrl)
+      .setColor('BLUE')
+      .setFooter({ text: "Powered by QuickChart" });
+
+    // Send the embed to the Discord channel
+    return msg.channel.send({ embeds: [embed] });
+  }
 },
   mute: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
