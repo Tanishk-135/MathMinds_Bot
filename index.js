@@ -300,22 +300,7 @@ client.on('messageCreate', async msg => {
   
     return handlePrompt(msg);
   }
-
-  // Custom send command for owner (supports channel ID or channel mention)
-  const sendMatch = msg.content.match(/^!send\s+(?:<#(\d+)>|(\d{17,20}))\s*\n\n([\s\S]*)/);
-  if (sendMatch && msg.author.id === process.env.OWNER_ID) {
-    const channelId = sendMatch[1] || sendMatch[2];
-    const messageContent = sendMatch[3];
-    const channel = await client.channels.fetch(channelId).catch(() => null);
-    if (!channel || !channel.isTextBased()) return msg.channel.send('❌ Invalid channel ID.');
-    try {
-      await channel.send(messageContent.trim());
-    } catch (e) {
-      console.error(e);
-      return msg.channel.send('❌ Failed to send message.');
-    }
-  }
-
+  
   if (!cmdMatch) return;
 
   const cmd = cmdMatch[1].toLowerCase();
@@ -385,85 +370,97 @@ const handlers = {
       }
   },
   send: async msg => {
-    // Only owner can run this command.
-    if (msg.author.id !== process.env.OWNER_ID)
-      return msg.channel.send("❌ You do not have permission for this command.");
+  // Only owner can run this command.
+  if (msg.author.id !== process.env.OWNER_ID)
+    return msg.channel.send("❌ You do not have permission for this command.");
 
-    // Expect the format: !send #channelname 11:50 PM IST
-    // (an empty line follows) then message content
-    const sendMatch = msg.content.match(
-      /^!send\s+(?:<#(\d+)>|(#\S+))\s+(\d{1,2}:\d{2})\s+(AM|PM)\s+(\S+)\s*\n\n([\s\S]*)$/i
+  // Expect formats:
+  // With time: !send #channelname 11:50 PM IST
+  // (an empty line follows) then message content.
+  // Without time: !send #channelname
+  // (an empty line follows) then message content.
+  const sendMatch = msg.content.match(
+    /^!send\s+(?:<#(\d+)>|(#\S+))(?:(?:\s+(\d{1,2}:\d{2})\s+(AM|PM)\s+(\S+)))?\s*\n\n([\s\S]*)$/i
+  );
+  if (!sendMatch)
+    return msg.channel.send(
+      "❌ Incorrect format. Usage:\n```\n!send #channelname 11:50 PM IST\n\nmessage content here\n```"
     );
-    if (!sendMatch)
+
+  // Extract groups.
+  const channelIdFromMention = sendMatch[1];
+  const channelNameText = sendMatch[2];
+  const timePart = sendMatch[3];
+  const meridiem = sendMatch[4] ? sendMatch[4].toUpperCase() : null;
+  const tzAbbr = sendMatch[5];
+  const messageContent = sendMatch[6].trim();
+
+  // Resolve the target channel.
+  let targetChannel;
+  if (channelIdFromMention) {
+    targetChannel = await msg.client.channels.fetch(channelIdFromMention).catch(() => null);
+  } else if (channelNameText) {
+    // Remove the '#' prefix if present.
+    const channelName = channelNameText.startsWith('#') ? channelNameText.slice(1) : channelNameText;
+    targetChannel = msg.guild.channels.cache.find(
+      c => c.name === channelName && c.isTextBased()
+    );
+  }
+  if (!targetChannel || !targetChannel.isTextBased())
+    return msg.channel.send("❌ Invalid channel.");
+
+  // If time parameters are missing, send immediately and inform the user about the correct format.
+  if (!timePart || !meridiem || !tzAbbr) {
+    try {
+      await targetChannel.send(messageContent);
       return msg.channel.send(
-        "❌ Incorrect format. Usage:\n```\n!send #channelname 11:50 PM IST\n\nmessage content here\n```"
+        "Message sent immediately. Note: To schedule a message, use the format:\n```\n!send #channelname 11:50 PM IST\n\nmessage content here\n```"
       );
-
-    // Extract groups
-    const channelIdFromMention = sendMatch[1];
-    const channelNameText = sendMatch[2];
-    const timePart = sendMatch[3];
-    const meridiem = sendMatch[4].toUpperCase();
-    const tzAbbr = sendMatch[5];
-    const messageContent = sendMatch[6].trim();
-
-    // Resolve the target channel.
-    let targetChannel;
-    if (channelIdFromMention) {
-      targetChannel = await msg.client.channels.fetch(channelIdFromMention).catch(() => null);
-    } else if (channelNameText) {
-      // Remove the '#' prefix if present.
-      const channelName = channelNameText.startsWith('#') ? channelNameText.slice(1) : channelNameText;
-      targetChannel = msg.guild.channels.cache.find(
-        c => c.name === channelName && c.isTextBased()
-      );
+    } catch (e) {
+      console.error(e);
+      return msg.channel.send("❌ Failed to send message.");
     }
-    if (!targetChannel || !targetChannel.isTextBased())
-      return msg.channel.send("❌ Invalid channel.");
+  }
 
-    // Map timezone abbreviations to IANA timezone names.
-    const tzMap = {
-      IST: "Asia/Kolkata",
-      EST: "America/New_York",
-      PST: "America/Los_Angeles"
-      // Add more mappings as needed.
-    };
-    const timezone = tzMap[tzAbbr.toUpperCase()] || tzAbbr;
+  // Map timezone abbreviations to IANA timezone names.
+  const tzMap = {
+    IST: "Asia/Kolkata",
+    EST: "America/New_York",
+    PST: "America/Los_Angeles"
+    // Add more mappings as needed.
+  };
+  const timezone = tzMap[tzAbbr.toUpperCase()] || tzAbbr;
 
-    // Build a datetime string for today in the given timezone.
-    const todayStr = moment().tz(timezone).format("YYYY-MM-DD");
-    const dateTimeStr = `${todayStr} ${timePart} ${meridiem}`;
-    const scheduledMoment = moment.tz(dateTimeStr, "YYYY-MM-DD hh:mm A", timezone);
-    if (!scheduledMoment.isValid())
-      return msg.channel.send("❌ Invalid scheduled time.");
+  // Build a datetime string for today's date in the given timezone.
+  const todayStr = moment().tz(timezone).format("YYYY-MM-DD");
+  const dateTimeStr = `${todayStr} ${timePart} ${meridiem}`;
+  let scheduledMoment = moment.tz(dateTimeStr, "YYYY-MM-DD hh:mm A", timezone);
+  if (!scheduledMoment.isValid())
+    return msg.channel.send("❌ Invalid scheduled time.");
 
-    // Calculate the delay (in milliseconds) until the scheduled time.
-    const now = moment();
-    const delay = scheduledMoment.diff(now);
+  // Calculate the delay until the scheduled time.
+  const now = moment().tz(timezone);
+  let delay = scheduledMoment.diff(now);
 
-    // If the time is past, send immediately.
-    if (delay <= 0) {
-      try {
-        await targetChannel.send(messageContent);
-        return msg.channel.send("Message sent immediately (time was in the past).");
-      } catch (e) {
-        console.error(e);
-        return msg.channel.send("❌ Failed to send message immediately.");
-      }
-    } else {
-      // Schedule the message to be sent.
-      setTimeout(async () => {
-        try {
-          await targetChannel.send(messageContent);
-        } catch (error) {
-          console.error("Scheduled message error:", error);
-        }
-      }, delay);
-      return msg.channel.send(
-        `Message scheduled for ${scheduledMoment.format("YYYY-MM-DD hh:mm A z")}`
-      );
+  // If the time is already past today, schedule it for the next day.
+  if (delay <= 0) {
+    scheduledMoment.add(1, 'day');
+    delay = scheduledMoment.diff(now);
+  }
+
+  // Schedule the message.
+  setTimeout(async () => {
+    try {
+      await targetChannel.send(messageContent);
+    } catch (error) {
+      console.error("Scheduled message error:", error);
     }
-  },
+  }, delay);
+
+  return msg.channel.send(
+    `Message scheduled for ${scheduledMoment.format("YYYY-MM-DD hh:mm A z")}`
+  );
+},
   mute: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
     const m = msg.mentions.members.first();
