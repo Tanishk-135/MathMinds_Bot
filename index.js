@@ -54,11 +54,21 @@ client.on("messageCreate", async (message) => {
     console.log("User input:", userInput);
 
     // Generate bot response
-    const botResponse = generateResponse(userInput); // Ensure this function returns a valid string
+    const botResponse = generateMathyResponse(userInput); // Ensure this function returns a valid string
 
     if (!botResponse || botResponse.trim() === "") {
         console.error("Bot response is undefined or empty.");
         return;
+    }
+
+    if (botResponse.length > 2000) {
+        const chunkSize = 2000;
+        const responseChunks = botResponse.match(new RegExp(`.{1,${chunkSize}}`, "g"));
+    
+        for (const chunk of responseChunks) {
+            await message.channel.send(chunk); // ✅ Sends each chunk separately
+        }
+        return; // ✅ Prevents sending the message again
     }
 
     try {
