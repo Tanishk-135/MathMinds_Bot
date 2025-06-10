@@ -84,28 +84,41 @@ function sanitizeForEvaluation(input) {
 
 function sanitizeForDisplay(input) {
   let eq = input.trim();
-  // Convert inverse trig for display
+  
+  // Replace multiplication dot with a space+asterisk+space for clarity.
+  eq = eq.replace(/⋅/g, ' * ');
+  
+  // Convert inverse trig functions for display
   eq = eq.replace(/sin\^-1/gi, '\\arcsin')
          .replace(/cos\^-1/gi, '\\arccos')
          .replace(/tan\^-1/gi, '\\arctan');
-  // Convert mod(...) to |...|
+  
+  // Convert mod(...) to absolute value notation.
   eq = eq.replace(/mod\(([^)]+)\)/gi, '|$1|');
-  // Insert a space between a number and a letter (e.g., "5x" -> "5 x")
+  
+  // Insert space between numbers and letters.
   eq = eq.replace(/(\d)([a-zA-Z])/g, '$1 $2');
-  // Remove a leading "y =" or "f(x)=" (we’ll display it as y = …)
-  eq = eq.replace(/^y\s*=\s*/i, '');
-  eq = eq.replace(/^f\s*\(\s*x\s*\)\s*=\s*/i, '');
-  // If an equals sign is present, take the more meaningful part.
-  if (eq.includes('=')) {
-    const parts = eq.split('=').map(p => p.trim());
-    if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
-      eq = parts[1];
-    } else {
-      eq = parts[0];
-    }
+  
+  // Remove leading "y =" or "f(x)=" if present.
+  if (eq.match(/^y\s*=\s*/i)) {
+      eq = eq.replace(/^y\s*=\s*/i, '');
+  } else if (eq.match(/^f\s*\(\s*x\s*\)\s*=\s*/i)) {
+      eq = eq.replace(/^f\s*\(\s*x\s*\)\s*=\s*/i, '');
   }
-  // Convert sqrt(…) to LaTeX: \sqrt{…}
+  
+  // For equations with an equals sign, adjust the displayed expression similarly.
+  if (eq.includes('=')) {
+      const parts = eq.split('=').map(p => p.trim());
+      if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
+          eq = parts[1];
+      } else {
+          eq = `(${parts[0]}) - (${parts[1]})`;
+      }
+  }
+  
+  // Convert sqrt(...) for LaTeX display.
   eq = eq.replace(/sqrt\(([^)]+)\)/gi, '\\sqrt{$1}');
+  
   return eq;
 }
 
