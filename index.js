@@ -495,42 +495,32 @@ const handlers = {
     const chartConfig = {
       type: 'line',
       data: {
-        labels: xValues,
-        datasets: [{
-          label: `y = ${functionExpression}`,
-          data: yValues,
-          fill: false,
-          borderColor: 'blue',
-          pointRadius: 3, // Makes points more visible
-          tension: 0
-        }]
+        labels: xValues, // e.g., [-10, -9, …, 10]
+        datasets: [
+          {
+            label: `y = ${functionExpression}`,
+            data: yValues,
+            fill: false,
+            borderColor: 'blue',
+            pointRadius: 3,
+            tension: 0
+          }
+        ]
       },
       options: {
-        plugins: {
-          // Explicitly set the chart background to white
-          chartAreaBackgroundColor: 'white',
-    
-          // Annotation plugin for the central y-axis line
-          annotation: {
-            annotations: {
-              yAxisCenter: {
-                type: 'line',
-                xMin: 0,
-                xMax: 0,
-                borderColor: 'black',
-                borderWidth: 2
-              }
-            }
-          }
-        },
+        backgroundColor: 'white',  // sets chart area background for Chart.js if supported
         scales: {
           x: {
             grid: {
-              color: '#ccc' // Light gray grid lines
+              color: '#ccc'  // light gray grid lines
             },
             title: {
               display: true,
-              text: 'x'
+              text: 'x',
+              color: 'black'
+            },
+            ticks: {
+              color: 'black'
             }
           },
           y: {
@@ -539,19 +529,33 @@ const handlers = {
             },
             title: {
               display: true,
-              text: 'y'
+              text: 'y',
+              color: 'black'
             },
             ticks: {
-              color: 'black' // Ensures visible tick marks
+              color: 'black'
             }
           }
         },
-        backgroundColor: 'white' // Set explicit chart background color
+        plugins: {
+          // Annotation plugin configuration:
+          annotation: {
+            annotations: {
+              verticalLine: {
+                type: 'line',
+                scaleID: 'x',   // indicates which x scale to use
+                value: 0,       // places the line at x = 0
+                borderColor: 'black',
+                borderWidth: 2
+              }
+            }
+          }
+        }
       }
     };
     
-    // Generate the QuickChart URL with this updated config
-    const chartUrl = "https://quickchart.io/chart?c=" + encodeURIComponent(JSON.stringify(chartConfig));
+    // Append &bkg=white to force a white background if needed.
+    const chartUrl = "https://quickchart.io/chart?c=" + encodeURIComponent(JSON.stringify(chartConfig)) + "&bkg=white";
 
     // Create an embed with the generated chart image
     const embed = new EmbedBuilder()
