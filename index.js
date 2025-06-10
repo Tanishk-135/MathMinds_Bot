@@ -594,14 +594,12 @@ const handlers = {
     qc.setWidth(800).setHeight(400).setDevicePixelRatio(2);
     
     // ---- New Short URL Code Begins Here ----
-    qc.setShortUrl(true);  // This line tells QuickChart to return a shortened URL
-    
     let chartUrl;
     try {
-      chartUrl = await qc.getShortUrl();  // Asynchronously get the short URL
+      chartUrl = await qc.getShortUrl();
     } catch (err) {
       console.error("Error getting short URL:", err);
-      chartUrl = qc.getUrl();  // Fallback to the long URL if there's an error
+      chartUrl = qc.getUrl();
     }
     // ---- New Short URL Code Ends Here ----
     
