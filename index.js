@@ -61,18 +61,13 @@ client.on("messageCreate", async (message) => {
         return;
     }
 
-    if (botResponse.length > 2000) {
-        const chunkSize = 2000;
-        const responseChunks = botResponse.match(new RegExp(`.{1,${chunkSize}}`, "g"));
-    
-        for (const chunk of responseChunks) {
-            await message.channel.send(chunk); // ✅ Sends each chunk separately
-        }
-        return; // ✅ Prevents sending the message again
-    }
-
     try {
-        await message.reply(botResponse); // Send the response
+        // ✅ Fix chunking issue using `.slice()` instead of `.match()`
+        const chunkSize = 2000;
+        for (let i = 0; i < botResponse.length; i += chunkSize) {
+            await message.channel.send(botResponse.slice(i, i + chunkSize));
+        }
+
     } catch (error) {
         console.error("Error sending message:", error);
     }
