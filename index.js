@@ -563,7 +563,7 @@ const handlers = {
       return msg.channel.send(`❌ Error parsing equation: ${err.message}`);
     }
     
-    // Build the QuickChart configuration (Chart.js format)
+    // Build the QuickChart configuration.
     const qc = new QuickChart();
     qc.setConfig({
       type: 'line',
@@ -591,14 +591,21 @@ const handlers = {
         }
       }
     });
-    
-    // Adjust chart size and resolution:
     qc.setWidth(800).setHeight(400).setDevicePixelRatio(2);
     
-    // Retrieve the image URL from QuickChart
-    const chartUrl = qc.getUrl();
+    // ---- New Short URL Code Begins Here ----
+    qc.setShortUrl(true);  // This line tells QuickChart to return a shortened URL
     
-    // Build and send the Discord embed
+    let chartUrl;
+    try {
+      chartUrl = await qc.getShortUrl();  // Asynchronously get the short URL
+    } catch (err) {
+      console.error("Error getting short URL:", err);
+      chartUrl = qc.getUrl();  // Fallback to the long URL if there's an error
+    }
+    // ---- New Short URL Code Ends Here ----
+    
+    // Build and send the Discord embed.
     const embed = new EmbedBuilder()
       .setTitle('Graph Generated')
       .setDescription(`Graph for equation: \`${userInput}\` interpreted as y = ${displayExpr}`)
