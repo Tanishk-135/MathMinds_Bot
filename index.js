@@ -545,12 +545,21 @@ const handlers = {
   );
 },
   graph: async msg => {
-    // Get the equation from the message (everything after "!graph")
-    const args = msg.content.split(' ').slice(1);
+    // Get the command arguments (everything after "!graph")
+    let args = msg.content.split(' ').slice(1);
     if (!args.length) {
       return msg.channel.send('❌ Please provide an equation.');
     }
     
+    // Check if the last argument is a number. If so, treat it as the sample count.
+    let sampleCount = 250; // Default sample count
+    const lastArg = args[args.length - 1];
+    if (!isNaN(lastArg)) {
+      sampleCount = parseInt(lastArg);
+      args.pop(); // Remove the sample count from the equation arguments
+    }
+    
+    // The remaining args become the equation.
     const userInput = args.join(' ');
     
     // Produce two sanitized versions:
@@ -559,8 +568,8 @@ const handlers = {
     
     let data;
     try {
-      // Generate data points from x in [-10, 10] with 300 samples.
-      data = generateDataPoints(evalExpr, [-10, 10], 300);
+      // Generate data points from x in [-10, 10] using the specified sample count.
+      data = generateDataPoints(evalExpr, [-10, 10], sampleCount);
     } catch (err) {
       console.error('Error generating data points:', err);
       return msg.channel.send(`❌ Error parsing equation: ${err.message}`);
@@ -577,8 +586,9 @@ const handlers = {
           data: data.yValues,
           borderColor: 'blue',
           fill: false,
-          pointRadius: 0,  // Remove the dots from the graph
-          tension: 0.3     // Smooth the line
+          pointRadius: 0,          // Remove the dots from the graph
+          pointHoverRadius: 0,     // Remove hover markers
+          tension: 0.3             // Smooth the line
         }]
       },
       options: {
@@ -587,18 +597,14 @@ const handlers = {
           text: `Graph of y = ${displayExpr}`
         },
         scales: {
-          x: {
-            title: { display: true, text: 'x' }
-          },
-          y: {
-            title: { display: true, text: 'y' }
-          }
+          x: { title: { display: true, text: 'x' } },
+          y: { title: { display: true, text: 'y' } }
         }
       }
     });
     qc.setWidth(800).setHeight(400).setDevicePixelRatio(2);
     
-    // Attempt to get a shortened URL.
+    // Attempt to get a shortened URL for the chart.
     let chartUrl;
     try {
       chartUrl = await qc.getShortUrl();
@@ -606,9 +612,9 @@ const handlers = {
       console.error("Error getting short URL:", err);
       chartUrl = qc.getUrl();
     }
-    console.log("Chart URL:", chartUrl); // Debug log: verify URL in console
+    console.log("Chart URL:", chartUrl); // Debug: log the URL
     
-    // Build the embed and include a clickable direct link below the image.
+    // Build and send the Discord embed.
     const embed = new EmbedBuilder()
       .setTitle('Graph Generated')
       .setDescription(`Graph for equation: \`${userInput}\` interpreted as y = ${displayExpr}\n[Direct Link](${chartUrl})`)
