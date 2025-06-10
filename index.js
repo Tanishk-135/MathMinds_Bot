@@ -20,10 +20,6 @@ const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const NEWS_API_URL = `https://newsapi.org/v2/everything?language=en&q="mathematics" OR "math education" OR "math research"&sortBy=publishedAt&apiKey=${NEWS_API_KEY}`;
 const SPOTLIGHT_CHANNEL_ID = '1378335341764935680';
 
-client.on("messageCreate", (message) => {
-    if (message.author.bot) return; // Ignore bot messages
-});
-
 // Gemini API Authentication
 const auth = new GoogleAuth({
   keyFile: './gemini_key.json',
@@ -41,6 +37,10 @@ const client = new Client({
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.MessageContent
   ]
+});
+
+client.on("messageCreate", (message) => {
+    if (message.author.bot) return; // Ignore bot messages
 });
 
 client.on("messageCreate", (message) => {
