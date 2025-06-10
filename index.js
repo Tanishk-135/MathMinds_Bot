@@ -32,6 +32,8 @@ const auth = new GoogleAuth({
   ],
 });
 
+
+
 // Client setup
 const client = new Client({
   intents: [
@@ -41,6 +43,48 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
+
+// Add this helper function near your other function definitions
+async function generateGraphUrl(expression, sampleCount = 250) {
+  const data = generateDataPoints(expression, [-10, 10], sampleCount);
+  const qc = new QuickChart();
+  qc.setConfig({
+    type: 'line',
+    data: {
+      labels: data.xValues,
+      datasets: [{
+        label: `y = ${expression}`,
+        data: data.yValues,
+        borderColor: 'blue',
+        fill: false,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        tension: 0.3
+      }]
+    },
+    options: {
+      title: {
+        display: true,
+        text: `Graph of y = ${expression}`
+      },
+      scales: {
+        x: { title: { display: true, text: 'x' } },
+        y: { title: { display: true, text: 'y' } }
+      }
+    }
+  });
+  qc.setWidth(800).setHeight(400).setDevicePixelRatio(2);
+  
+  let chartUrl;
+  try {
+    chartUrl = await qc.getShortUrl();
+  } catch (err) {
+    console.error("Error getting short URL:", err);
+    chartUrl = qc.getUrl();
+  }
+  
+  return chartUrl;
+}
 
 function sanitizeForEvaluation(input) {
   let eq = input.trim();
@@ -385,6 +429,45 @@ ${prompt}
     for (const chunk of chunks) {
       await msg.channel.send(chunk.trim());
     }
+
+    // ---------- NEW GRAPH DETECTION CODE ADDED BELOW ----------
+    // Check if the reply includes "graph of"
+    const lowerReply = reply.toLowerCase();
+    const graphKeyword = "graph of";
+
+    if (lowerReply.includes(graphKeyword)) {
+      // Extract everything after the last occurrence of "graph of"
+      const index = lowerReply.lastIndexOf(graphKeyword);
+      let graphExpr = reply.substring(index + graphKeyword.length).trim();
+
+      // Validate that the extracted text looks like a mathematical expression.
+      if (graphExpr && /[0-9a-zA-Z+\-*/^()]/.test(graphExpr)) {
+        try {
+          // Attempt to compile the expression to double-check it’s valid (using math.js)
+          math.compile(graphExpr);
+        } catch (err) {
+          console.log("Graph expression is not valid. Skipping graph generation.");
+          return;  // Exit if the expression is invalid.
+        }
+
+        // If valid, generate the graph.
+        try {
+          const chartUrl = await generateGraphUrl(graphExpr);
+          const embed = new EmbedBuilder()
+            .setTitle('Graph Generated')
+            .setDescription(`[Direct Link to Graph](${chartUrl})`)
+            .setColor(0x3498db)
+            .setImage(chartUrl);
+          await msg.channel.send({ embeds: [embed] });
+        } catch (err) {
+          console.error("Graph generation error:", err);
+          await msg.channel.send("❌ Sorry, there was an error generating the graph.");
+        }
+      } else {
+        console.log("No valid graph expression detected after 'graph of'.");
+      }
+    }
+    // ---------- END OF NEW GRAPH CODE ----------
   } catch (e) {
     console.error(e);
     return msg.channel.send('⚠️ Failed to get AI response.');
