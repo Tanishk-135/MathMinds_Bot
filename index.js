@@ -430,38 +430,59 @@ ${prompt}
     const chunks = reply.match(/[\s\S]{1,1900}/g) || [];
     // After your chunk loop:
     for (const chunk of chunks) {
-      // ---------- NEW GRAPH DETECTION CODE ADDED BELOW ----------
-      const lowerReply = reply.toLowerCase();
-      const graphKeyword = "graph of";
+      // ---------- NEW PRE-CHUNK GRAPH DETECTION & REMOVAL CODE ----------
       
-      if (lowerReply.includes(graphKeyword)) {
-        // Extract everything after the last occurrence of "graph of"
-        const index = lowerReply.lastIndexOf(graphKeyword);
-        let graphExpr = reply.substring(index + graphKeyword.length).trim();
+      // Step 1: Split the reply into lines, then check the last two lines for an inline graph expression.
+      let graphExpr = null;
+      const lines = reply.split("\n");
+      const inlineGraphRegex = /^graph of\s+`([^`]+)`/i;
       
-        // Clean up: remove markdown code block markers and the placeholder text "graph will be generated below"
-        graphExpr = graphExpr.replace(/```/g, '').trim();
-        graphExpr = graphExpr.replace(/graph will be generated below\.?/ig, '').trim();
-      
-        // If nothing useful remains, try to fallback: extract from the first backtick-enclosed substring
-        if (!graphExpr) {
-          const match = reply.match(/`([^`]+)`/);
-          if (match && match[1]) {
-            graphExpr = match[1].trim();
-          }
+      // Loop over the last two lines (if available):
+      for (let i = Math.max(0, lines.length - 2); i < lines.length; i++) {
+        const line = lines[i].trim();
+        const match = line.match(inlineGraphRegex);
+        if (match && match[1]) {
+          graphExpr = match[1].trim();
+          // Remove this line from the reply.
+          lines.splice(i, 1);
+          break;
         }
+      }
+      // Rejoin the lines (the inline graph expression line has now been removed)
+      reply = lines.join("\n").trim();
       
-        // Validate: we only want simple expressions like "5x" or "3x"
+      // Step 2: Remove the triple-backtick code block that contains the placeholder.
+      // (The placeholder code block contains the phrase "The graph is going to be generated below")
+      const graphPlaceholderRegex = /```[\s\S]*?The graph is going to be generated below[\s\S]*?```/gi;
+      reply = reply.replace(graphPlaceholderRegex, "").trim();
+      
+      // Step 3: Fallback extraction (if no valid inline expression was found above, try to extract any inline code)
+      if (!graphExpr) {
+        const fallbackMatch = reply.match(/`([^`]+)`/);
+        if (fallbackMatch && fallbackMatch[1]) {
+          graphExpr = fallbackMatch[1].trim();
+        }
+      }
+      
+      // ---------- END OF PRE-CHUNK GRAPH DETECTION & REMOVAL CODE ----------
+      
+      // Now, proceed to split the (cleaned) reply into chunks and send them.
+      const chunks = reply.match(/[\s\S]{1,1900}/g) || [];
+      for (const chunk of chunks) {
+        await msg.channel.send(chunk.trim());
+      }
+      
+      // After sending the text chunks, validate the extracted graph expression and generate the graph.
+      if (graphExpr) {
+        // Validate that the expression is simple, e.g., "5x" or "3x"
         const simplePattern = /^[-+]?(\d+(\.\d+)?\s*)?x$/i;
-        if (!graphExpr || !simplePattern.test(graphExpr)) {
+        if (!simplePattern.test(graphExpr)) {
           console.log("Extracted graph expression does not match expected simple format (e.g., '5x' or '3x'). Skipping graph generation.");
         } else {
-          // Expression looks good; generate the graph.
           try {
             const chartUrl = await generateGraphUrl(graphExpr);
             const embed = new EmbedBuilder()
               .setTitle('Graph Generated')
-              // Only set the description if the chartUrl is short enough
               .setDescription(chartUrl.length < 4000 ? `[Direct Link to Graph](${chartUrl})` : '')
               .setColor(0x3498db)
               .setImage(chartUrl);
@@ -471,8 +492,9 @@ ${prompt}
             await msg.channel.send("❌ Sorry, there was an error generating the graph.");
           }
         }
+      } else {
+        console.log("No inline graph expression found. No graph will be generated.");
       }
-      // ---------- END OF NEW GRAPH CODE ----------
       await msg.channel.send(chunk.trim());
     }
 
