@@ -39,7 +39,9 @@ const client = new Client({
   ]
 });
 
-client.on("messageCreate", (message) => {
+client.on("messageCreate", async (message) => {
+    if (message.author.bot) return; // Ignore bot messages
+
     console.log("Message received:", message.content); // Debugging log
 
     if (!message.content) {
@@ -47,20 +49,12 @@ client.on("messageCreate", (message) => {
         return;
     }
 
-    let userInput = message.content.trim();
+    // Declare userInput only once
+    const userInput = message.content.trim();
     console.log("User input:", userInput);
 
-    // Process the response
-    let botResponse = generateResponse(userInput); // Ensure this function exists
-    console.log("Bot response before storing:", botResponse);
-
-    message.reply(botResponse); // Send the response
-    
-    if (message.author.bot) return; // Ignore bot messages
-    let userInput = message.content.trim();
-    console.log("User input:", userInput);
-
-    let botResponse = generateResponse(userInput); // Ensure this function returns a valid string
+    // Generate bot response
+    const botResponse = generateResponse(userInput); // Ensure this function returns a valid string
 
     if (!botResponse || botResponse.trim() === "") {
         console.error("Bot response is undefined or empty.");
@@ -68,7 +62,7 @@ client.on("messageCreate", (message) => {
     }
 
     try {
-        await message.reply(botResponse);
+        await message.reply(botResponse); // Send the response
     } catch (error) {
         console.error("Error sending message:", error);
     }
