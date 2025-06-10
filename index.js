@@ -126,41 +126,46 @@ client.once('ready', async () => {
 
 
 client.on("messageCreate", async (message) => {
-    if (message.author.bot) return; // Ignore bot messages
+    if (message.author.bot) return; // ✅ Ignore bot messages
 
-    console.log("Is message defined?", typeof message, message); // ✅ Debugging log
+    console.log("Is message defined at start?", typeof message, message); // ✅ Debugging log
+    console.log("Message received:", message.content); // ✅ Debugging log
 
-    console.log("Message received:", message.content); // Debugging log
-
-    if (!message.content) {
-        console.error("Message content is undefined");
+    if (!message.content || message.content.trim() === "") {
+        console.error("Message content is undefined or empty.");
         return;
     }
 
-    // Declare userInput only once
+    // ✅ Declare userInput only once
     const userInput = message.content.trim();
     console.log("User input:", userInput);
 
-    // Generate bot response
-    const botResponse = await generateMathyResponse(userInput); // ✅ Use `await` to get the actual response
-
-    // ✅ Check if botResponse is undefined or not a string
-    if (!botResponse || typeof botResponse !== "string") {
-        console.error("Error: botResponse is not a valid string:", botResponse);
-        return;
-    }
-    
     try {
+        // ✅ Debug message existence before calling generateMathyResponse
+        console.log("Is message still defined before response generation?", typeof message);
+
+        // ✅ Generate bot response, passing `message` explicitly if needed
+        const botResponse = await generateMathyResponse(userInput, message); // ✅ Ensure this is awaited
+
+        // ✅ Check if botResponse is valid
+        if (!botResponse || typeof botResponse !== "string") {
+            console.error("Error: botResponse is not a valid string:", botResponse);
+            return;
+        }
+
+        // ✅ Debug message existence before sending response
+        console.log("Is message still defined before sending response?", typeof message);
+
         // ✅ Fix chunking issue using `.slice()` instead of `.match()`
         const chunkSize = 2000;
         for (let i = 0; i < botResponse.length; i += chunkSize) {
             await message.channel.send(botResponse.slice(i, i + chunkSize));
         }
+
     } catch (error) {
-        console.error("Error sending message:", error);
+        console.error("Error generating or sending Mathy response:", error);
     }
 });
-
 // --------------------
 // Second client.once: (AI handler registration only, no nesting)
 // --------------------
