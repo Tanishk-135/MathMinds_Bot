@@ -128,6 +128,8 @@ client.once('ready', async () => {
 client.on("messageCreate", async (message) => {
     if (message.author.bot) return; // Ignore bot messages
 
+    console.log("Is message defined?", typeof message, message); // ✅ Debugging log
+
     console.log("Message received:", message.content); // Debugging log
 
     if (!message.content) {
