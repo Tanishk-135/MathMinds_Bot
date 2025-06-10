@@ -352,16 +352,27 @@ const handlers = {
     msg.channel.send(`👤 ${user.tag}\n🆔 ${user.id}\n📅 Created: ${user.createdAt.toDateString()}`);
   },
   clear: async msg => {
-    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) return msg.channel.send('❌ No permission.');
-    const count = parseInt(msg.content.split(' ')[1]);
-    if (!count || count < 1 || count > 100) return msg.channel.send('⚠️ Provide 1-100.');
+    if (!msg.member.permissions.has(PermissionFlagsBits.ManageMessages)) 
+        return msg.channel.send('❌ No permission.');
+
+    const count = parseInt(msg.content.trim().split(/\s+/)[1]); // Handles extra spaces
+
+    if (isNaN(count) || count < 1 || count > 100) 
+        return msg.channel.send('⚠️ Provide a number between 1 and 100.');
+
     try {
-      await msg.channel.bulkDelete(count + 1, true);
+        // ✅ Step 1: Delete requested messages (max 100)
+        await msg.channel.bulkDelete(Math.min(count, 100), true);
+
+        // ✅ Step 2: Delete the command message separately after a short delay
+        setTimeout(() => {
+            msg.delete().catch(console.error);
+        }, 1000);
     } catch (e) {
-      console.error(e);
-      msg.channel.send('❌ Delete failed.');
+        console.error(e);
+        msg.channel.send('❌ Delete failed.');
     }
-  },
+},
   mute: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
     const m = msg.mentions.members.first();
