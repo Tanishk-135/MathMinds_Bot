@@ -9,9 +9,8 @@ const execPromise = util.promisify(exec);
 const cron = require('node-cron');
 const fetch = require('node-fetch');
 const moment = require("moment-timezone");
-const puppeteer = require('puppeteer-core');
-const fs = require('fs').promises;
-const path = require('path');
+const QuickChart = require('quickchart-js');
+const math = require('mathjs');
 
 async function fetchArticleContent(url) {
   return ''; // placeholder: no content
@@ -43,16 +42,83 @@ const client = new Client({
   ]
 });
 
-const sanitizeEquation = (equation) => {
-  let eq = equation.trim();
-  // Normalize the "y =" part (if provided)
-  eq = eq.replace(/^y\s*=\s*/i, 'y=');
-  // Replace mod(...) with |...|
+function sanitizeForEvaluation(input) {
+  let eq = input.trim();
+  // Convert inverse trig notation
+  eq = eq.replace(/sin\^-1/gi, 'asin')
+         .replace(/cos\^-1/gi, 'acos')
+         .replace(/tan\^-1/gi, 'atan');
+  // Convert mod(...) to abs(...)
+  eq = eq.replace(/mod\(([^)]+)\)/gi, 'abs($1)');
+  // Insert explicit multiplication (e.g. "5x" becomes "5*x")
+  eq = eq.replace(/(\d)([a-zA-Z])/g, '$1*$2');
+  // Remove leading "y =" or "f(x)=" if present
+  eq = eq.replace(/^y\s*=\s*/i, '').replace(/^f\s*\(\s*x\s*\)\s*=\s*/i, '');
+  // If an equals sign is present, take the left-hand side—assume expression = 0.
+  if (eq.includes('=')) {
+    const parts = eq.split('=').map(p => p.trim());
+    // If the left side is simply "y" or "f(x)", use the right side;
+    // otherwise, assume form "expression = 0" and take the left part.
+    if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
+      eq = parts[1];
+    } else {
+      eq = parts[0];
+    }
+  }
+  return eq;
+}
+
+function sanitizeForDisplay(input) {
+  let eq = input.trim();
+  // Convert inverse trig for display
+  eq = eq.replace(/sin\^-1/gi, '\\arcsin')
+         .replace(/cos\^-1/gi, '\\arccos')
+         .replace(/tan\^-1/gi, '\\arctan');
+  // Convert mod(...) to |...|
   eq = eq.replace(/mod\(([^)]+)\)/gi, '|$1|');
-  // Replace sqrt(...) with \sqrt{...}
+  // Insert a space between a number and a letter (e.g., "5x" -> "5 x")
+  eq = eq.replace(/(\d)([a-zA-Z])/g, '$1 $2');
+  // Remove a leading "y =" or "f(x)=" (we’ll display it as y = …)
+  eq = eq.replace(/^y\s*=\s*/i, '');
+  eq = eq.replace(/^f\s*\(\s*x\s*\)\s*=\s*/i, '');
+  // If an equals sign is present, take the more meaningful part.
+  if (eq.includes('=')) {
+    const parts = eq.split('=').map(p => p.trim());
+    if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
+      eq = parts[1];
+    } else {
+      eq = parts[0];
+    }
+  }
+  // Convert sqrt(…) to LaTeX: \sqrt{…}
   eq = eq.replace(/sqrt\(([^)]+)\)/gi, '\\sqrt{$1}');
   return eq;
-};
+}
+
+function generateDataPoints(exprStr, domain = [-10, 10], sampleCount = 100) {
+  let compiledFunction;
+  try {
+    compiledFunction = math.compile(exprStr);
+  } catch (err) {
+    throw new Error(`Failed to parse the expression: ${err.message}`);
+  }
+  const [min, max] = domain;
+  const step = (max - min) / (sampleCount - 1);
+  const xValues = [];
+  const yValues = [];
+  for (let i = 0; i < sampleCount; i++) {
+    const x = min + i * step;
+    let y;
+    try {
+      y = compiledFunction.evaluate({ x });
+    } catch (err) {
+      y = NaN;
+    }
+    xValues.push(x.toFixed(2));
+    yValues.push(y);
+  }
+  return { xValues, yValues };
+}
 
 let readyAt;
 
@@ -476,59 +542,70 @@ const handlers = {
   );
 },
   graph: async msg => {
-    // Get the equation provided by the user.
-    // For example: "!graph y = sqrt(1-x^2) + (mod(x) - x)^2"
+    // Get the equation from the message (everything after "!graph")
     const args = msg.content.split(' ').slice(1);
-    if (!args.length) return msg.channel.send('❌ Please provide an equation.');
-    
-    const userEquation = args.join(' ');
-    const sanitizedEquation = sanitizeEquation(userEquation);
-
-    try {
-      // Read the HTML template with a placeholder for the equation.
-      const templatePath = path.join(__dirname, '..', 'desmos_graph.html');
-      let htmlContent = await fs.readFile(templatePath, 'utf8');
-      
-      // Replace the placeholder "%%EQUATION%%" with the sanitized equation.
-      htmlContent = htmlContent.replace('%%EQUATION%%', sanitizedEquation);
-      
-      // Write the updated HTML to a temporary file.
-      const tempHtmlPath = path.join(__dirname, '..', 'tmp_desmos_graph.html');
-      await fs.writeFile(tempHtmlPath, htmlContent, 'utf8');
-      
-      // Launch Puppeteer-Core, specifying the Chromium executable from Termux.
-      const browser = await puppeteer.launch({
-        executablePath: '/data/data/com.termux/files/usr/bin/chromium',
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-      });
-      const page = await browser.newPage();
-      const fileUrl = 'file://' + tempHtmlPath;
-      
-      // Navigate to the temporary HTML file.
-      await page.goto(fileUrl, { waitUntil: 'networkidle2' });
-      
-      // Wait for the Desmos calculator element to render.
-      await page.waitForSelector('#calculator', { timeout: 5000 }).catch(() => {});
-      // Extra wait to ensure the graph is fully rendered.
-      await page.waitForTimeout(2000);
-      
-      // Capture a screenshot of the page.
-      const screenshotPath = path.join(__dirname, '..', 'tmp_desmos_graph.png');
-      await page.screenshot({ path: screenshotPath });
-      await browser.close();
-      
-      // Build an embed message with the screenshot attached.
-      const embed = new EmbedBuilder()
-        .setTitle('Graph Generated')
-        .setDescription(`Graph for equation: \`${sanitizedEquation}\``)
-        .setColor(0x3498db)
-        .setImage('attachment://tmp_desmos_graph.png');
-      
-      await msg.channel.send({ embeds: [embed], files: [screenshotPath] });
-    } catch (error) {
-      console.error('Error generating graph:', error);
-      msg.channel.send(`❌ Error generating graph: ${error.message}`);
+    if (!args.length) {
+      return msg.channel.send('❌ Please provide an equation.');
     }
+    
+    const userInput = args.join(' ');
+    
+    // Produce two sanitized versions:
+    const evalExpr = sanitizeForEvaluation(userInput);
+    const displayExpr = sanitizeForDisplay(userInput);
+    
+    let data;
+    try {
+      // Generate data points from x in [-10, 10] with 100 samples.
+      data = generateDataPoints(evalExpr, [-10, 10], 100);
+    } catch (err) {
+      console.error('Error generating data points:', err);
+      return msg.channel.send(`❌ Error parsing equation: ${err.message}`);
+    }
+    
+    // Build the QuickChart configuration (Chart.js format)
+    const qc = new QuickChart();
+    qc.setConfig({
+      type: 'line',
+      data: {
+        labels: data.xValues,
+        datasets: [{
+          label: `y = ${displayExpr}`,
+          data: data.yValues,
+          borderColor: 'blue',
+          fill: false
+        }]
+      },
+      options: {
+        title: {
+          display: true,
+          text: `Graph of y = ${displayExpr}`
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'x' }
+          },
+          y: {
+            title: { display: true, text: 'y' }
+          }
+        }
+      }
+    });
+    
+    // Adjust chart size and resolution:
+    qc.setWidth(800).setHeight(400).setDevicePixelRatio(2);
+    
+    // Retrieve the image URL from QuickChart
+    const chartUrl = qc.getUrl();
+    
+    // Build and send the Discord embed
+    const embed = new EmbedBuilder()
+      .setTitle('Graph Generated')
+      .setDescription(`Graph for equation: \`${userInput}\` interpreted as y = ${displayExpr}`)
+      .setColor(0x3498db)
+      .setImage(chartUrl);
+    
+    return msg.channel.send({ embeds: [embed] });
   },
   mute: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
