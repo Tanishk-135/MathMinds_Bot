@@ -304,6 +304,7 @@ client.on('messageCreate', async msg => {
     console.log("Bot response before storing:", botResponse); // Debugging log
     
     // ✅ Store Mathy's response in Redis & PostgreSQL
+    console.log("Message object:", message);
     if (message.content) {
         let userInput = message.content.trim();
         // Proceed with processing
