@@ -20,6 +20,10 @@ const NEWS_API_KEY = process.env.NEWS_API_KEY;
 const NEWS_API_URL = `https://newsapi.org/v2/everything?language=en&q="mathematics" OR "math education" OR "math research"&sortBy=publishedAt&apiKey=${NEWS_API_KEY}`;
 const SPOTLIGHT_CHANNEL_ID = '1378335341764935680';
 
+client.on("messageCreate", (message) => {
+    if (message.author.bot) return; // Ignore bot messages
+});
+
 // Gemini API Authentication
 const auth = new GoogleAuth({
   keyFile: './gemini_key.json',
@@ -49,6 +53,12 @@ client.on("messageCreate", (message) => {
 
     let userInput = message.content.trim();
     console.log("User input:", userInput);
+
+    // Process the response
+    let botResponse = generateResponse(userInput); // Ensure this function exists
+    console.log("Bot response before storing:", botResponse);
+
+    message.reply(botResponse); // Send the response
 });
 
 let readyAt;
@@ -310,6 +320,8 @@ client.on('messageCreate', async msg => {
     // First, store the user’s message in the database.
     await storeMessage(userId, "user", msg.content);
 
+    console.log("Is message defined?", typeof message);
+    
     // Call handlePrompt(msg) to generate Mathy's response.
     // IMPORTANT: Ensure that handlePrompt returns the reply text.
     const botResponse = await handlePrompt(msg);
