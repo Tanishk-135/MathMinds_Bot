@@ -433,50 +433,56 @@ ${prompt}
       await msg.channel.send(chunk.trim());
     }
     
-    // ---------- NEW GRAPH DETECTION CODE ADDED BELOW ----------
-    const lowerReply = reply.toLowerCase();
-    const graphKeyword = "graph of";
+    // ---------- UPDATED GRAPH DETECTION CODE ----------
+
+    // Step 1: Search for the placeholder triple-backtick block.
+    const placeholderRegex = /```[\s\S]*?The graph is going to be generated below[\s\S]*?```/i;
+    const placeholderMatch = reply.match(placeholderRegex);
     
-    if (lowerReply.includes(graphKeyword)) {
-      // Extract everything after the last occurrence of "graph of"
-      const index = lowerReply.lastIndexOf(graphKeyword);
-      let graphExpr = reply.substring(index + graphKeyword.length).trim();
-    
-      // Clean up: remove markdown code block markers and the placeholder text "graph will be generated below"
-      graphExpr = graphExpr.replace(/```/g, '').trim();
-      graphExpr = graphExpr.replace(/graph will be generated below\.?/ig, '').trim();
-    
-      // If nothing useful remains, try to fallback: extract from the first backtick-enclosed substring
-      if (!graphExpr) {
-        const match = reply.match(/`([^`]+)`/);
-        if (match && match[1]) {
-          graphExpr = match[1].trim();
-        }
-      }
-    
-      // Validate: we only want simple expressions like "5x" or "3x"
-      const simplePattern = /^[-+]?(\d+(\.\d+)?\s*)?x$/i;
-      if (!graphExpr || !simplePattern.test(graphExpr)) {
-        console.log("Extracted graph expression does not match expected simple format (e.g., '5x' or '3x'). Skipping graph generation.");
+    if (placeholderMatch) {
+      // Remove the placeholder code block from the reply.
+      const cleanedReply = reply.replace(placeholderRegex, "").trim();
+      
+      // Step 2: Split the cleaned reply into lines.
+      const lines = cleanedReply.split("\n");
+      if (lines.length < 1) {
+        console.log("Not enough lines to extract graph expression. Skipping graph generation.");
       } else {
-        // Expression looks good; generate the graph.
-        try {
-          const chartUrl = await generateGraphUrl(graphExpr);
-          const embed = new EmbedBuilder()
-            .setTitle('Graph Generated')
-            // Only set the description if the chartUrl is short enough
-            .setDescription(chartUrl.length < 4000 ? `[Direct Link to Graph](${chartUrl})` : '')
-            .setColor(0x3498db)
-            .setImage(chartUrl);
-          await msg.channel.send({ embeds: [embed] });
-        } catch (err) {
-          console.error("Graph generation error:", err);
-          await msg.channel.send("❌ Sorry, there was an error generating the graph.");
+        // Look at the last line (the one immediately above where the placeholder was).
+        const lastLine = lines[lines.length - 1].trim();
+        // Expecting a line of the form: "Graph of `5x`"
+        const inlineGraphRegex = /^graph of\s+`([^`]+)`/i;
+        const match = lastLine.match(inlineGraphRegex);
+        if (match && match[1]) {
+          const graphExpr = match[1].trim();
+          
+          // Validate that the extracted text is a simple math expression (like "5x" or "3x").
+          const simplePattern = /^[-+]?(\d+(\.\d+)?\s*)?x$/i;
+          if (!simplePattern.test(graphExpr)) {
+            console.log("Extracted graph expression does not match expected simple format (e.g., '5x' or '3x'). Skipping graph generation.");
+          } else {
+            // Generate the graph embed using the extracted expression.
+            try {
+              const chartUrl = await generateGraphUrl(graphExpr);
+              const embed = new EmbedBuilder()
+                .setTitle('Graph Generated')
+                // Set a description with a direct link if the URL is short enough.
+                .setDescription(chartUrl.length < 4000 ? `[Direct Link to Graph](${chartUrl})` : '')
+                .setColor(0x3498db)
+                .setImage(chartUrl);
+              // Send the embed—in effect replacing the placeholder code block with the real graph.
+              await msg.channel.send({ embeds: [embed] });
+            } catch (err) {
+              console.error("Graph generation error:", err);
+              await msg.channel.send("❌ Sorry, there was an error generating the graph.");
+            }
+          }
+        } else {
+          console.log("No valid inline graph expression found on the line above the placeholder. Skipping graph generation.");
         }
       }
     }
-    // ---------- END OF NEW GRAPH CODE ----------
-    
+    // ---------- END OF UPDATED GRAPH DETECTION CODE ----------    
 
   } catch (e) {
     console.error(e);
