@@ -44,29 +44,40 @@ const client = new Client({
 
 function sanitizeForEvaluation(input) {
   let eq = input.trim();
+
   // Replace the multiplication dot with an asterisk for evaluation.
   eq = eq.replace(/⋅/g, '*');
+
   // Convert ln( ) to log( ) for mathjs and handle inverse trig.
   eq = eq.replace(/ln\(/gi, 'log(')
-  eq = eq.replace(/sin\^-1/gi, 'asin')
+         .replace(/sin\^-1/gi, 'asin')
          .replace(/cos\^-1/gi, 'acos')
          .replace(/tan\^-1/gi, 'atan');
+
   // Convert mod(...) to abs(...)
   eq = eq.replace(/mod\(([^)]+)\)/gi, 'abs($1)');
+
   // Insert explicit multiplication (e.g. "5x" becomes "5*x")
   eq = eq.replace(/(\d)([a-zA-Z])/g, '$1*$2');
-  // Remove leading "y =" or "f(x)=" if present
-  eq = eq.replace(/^y\s*=\s*/i, '').replace(/^f\s*\(\s*x\s*\)\s*=\s*/i, '');
-  // If an equals sign is present, take the left-hand side—assume expression = 0.
+
+  // Remove any leading "y =" or "f(x)=" if present.
+  if (eq.match(/^y\s*=\s*/i)) {
+      eq = eq.replace(/^y\s*=\s*/i, '');
+  } else if (eq.match(/^f\s*\(\s*x\s*\)\s*=\s*/i)) {
+      eq = eq.replace(/^f\s*\(\s*x\s*\)\s*=\s*/i, '');
+  }
+
+  // Handle equals sign: if present, decide how to interpret it.
   if (eq.includes('=')) {
-    const parts = eq.split('=').map(p => p.trim());
-    // If the left side is simply "y" or "f(x)", use the right side;
-    // otherwise, assume form "expression = 0" and take the left part.
-    if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
-      eq = parts[1];
-    } else {
-      eq = parts[0];
-    }
+      const parts = eq.split('=').map(p => p.trim());
+      // If the left-hand side explicitly is "y" or "f(x)", use the right-hand side.
+      if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
+          eq = parts[1];
+      } else {
+          // Otherwise assume the user meant an implicit equation:
+          // interpret A = B as A - B.
+          eq = `(${parts[0]}) - (${parts[1]})`;
+      }
   }
   return eq;
 }
