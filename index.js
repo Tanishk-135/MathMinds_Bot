@@ -41,9 +41,15 @@ const client = new Client({
 
 let readyAt;
 
-// ✅ Move generateMathyResponse OUTSIDE of client.once('ready')
-async function generateMathyResponse(text) {
-    console.log('Inside, is message defined?', typeof message, message);
+// --------------------
+// First client.once: define helper and immediately‐invoked fetch logic
+// --------------------
+client.once('ready', () => {
+  readyAt = Date.now();
+  console.log(`Logged in as ${client.user.tag}`);
+
+  // Helper: generate Mathy response
+  async function generateMathyResponse(text) {
     const mathPrompt = `
 You are Mathy, the Gen Z MathBot — a chaotic, funny, cracked-at-math AI tutor with meme rizz.
 You're 50% math genius, 50% TikTok goblin, and 100% unhinged.
@@ -89,87 +95,37 @@ ${text}
       console.error('Error generating Mathy response:', e);
       return 'Mathy failed to process news.';
     }
-}
-
-// --------------------
-// Now client.once('ready') runs AFTER defining generateMathyResponse
-// --------------------
-client.once('ready', async () => {
-  readyAt = Date.now();
-  console.log(`Logged in as ${client.user.tag}`);
+  }
 
   // On ready: fetch news, scrape content, pass to Mathy, send to channel
-  try {
-    const response = await fetch(NEWS_API_URL);
-    const data = await response.json();
-    console.log('Taking RAW NewsAPI');
-
-    if (data.articles?.length > 0) {
-      const { title, url: articleUrl } = data.articles[0];
-      const excerpt = await fetchArticleContent(articleUrl);
-      const newsText = `Headline:\n"${title}"\n\n${excerpt || 'No content.'}`;
-      const mathyReply = await generateMathyResponse(newsText); // ✅ Now this works globally!
-
-      let channel = client.channels.cache.get(SPOTLIGHT_CHANNEL_ID)
-                 || await client.channels.fetch(SPOTLIGHT_CHANNEL_ID);
-      if (!channel?.isTextBased()) {
-        return console.error('Channel not found or not text-based');
-      }
-      await channel.send(`⚡ MathMinds Spotlight! ⚡\n\n${mathyReply}`);
-      console.log('Sent Mathy’s news explanation');
-    } else {
-      console.log('No math news available today.');
-    }
-  } catch (err) {
-    console.error('Error fetching or sending Mathy response:', err);
-  }
-});
-
-
-client.on("messageCreate", async (message) => {
-    if (message.author.bot) return; // ✅ Ignore bot messages
-
-    console.log("Is message defined at start?", typeof message, message); // ✅ Debugging log
-    console.log("Message received:", message.content); // ✅ Debugging log
-
-    if (!message.content || message.content.trim() === "") {
-        console.error("Message content is undefined or empty.");
-        return;
-    }
-
-    // ✅ Declare userInput only once
-    const userInput = message.content.trim();
-    console.log("User input:", userInput);
-
+  (async () => {
     try {
-        // ✅ Debug message existence before calling generateMathyResponse
-        console.log("Is message defined before calling generateMathyResponse?", typeof message, message);
+      const response = await fetch(NEWS_API_URL);
+      const data = await response.json();
+      console.log('Raw NewsAPI response:', data);
 
-        // ✅ Generate bot response, passing `message` explicitly
-        const botResponse = await generateMathyResponse(userInput, message); // ✅ Ensure this is awaited
+      if (data.articles?.length > 0) {
+        const { title, url: articleUrl } = data.articles[0];
+        const excerpt = await fetchArticleContent(articleUrl);
+        const newsText = `Headline:\n"${title}"\n\n${excerpt || 'No content.'}`;
+        const mathyReply = await generateMathyResponse(newsText);
 
-        // ✅ Debug message existence after calling generateMathyResponse
-        console.log("Is message defined after calling generateMathyResponse?", typeof message, message);
-
-        // ✅ Check if botResponse is valid
-        if (!botResponse || typeof botResponse !== "string") {
-            console.error("Error: botResponse is not a valid string:", botResponse);
-            return;
+        let channel = client.channels.cache.get(SPOTLIGHT_CHANNEL_ID)
+                   || await client.channels.fetch(SPOTLIGHT_CHANNEL_ID);
+        if (!channel?.isTextBased()) {
+          return console.error('Channel not found or not text-based');
         }
-
-        // ✅ Debug message existence before sending response
-        console.log("Is message still defined before sending response?", typeof message);
-
-        // ✅ Fix chunking issue using `.slice()` instead of `.match()`
-        const chunkSize = 2000;
-        for (let i = 0; i < botResponse.length; i += chunkSize) {
-            await message.channel.send(botResponse.slice(i, i + chunkSize));
-        }
-
-    } catch (error) {
-        console.error("Error generating or sending Mathy response:", error);
+        await channel.send(`⚡ MathMinds Spotlight! ⚡\n\n${mathyReply}`);
+        console.log('Sent Mathy’s news explanation');
+      } else {
+        console.log('No math news available today.');
+      }
+    } catch (err) {
+      console.error('Error fetching or sending Mathy response:', err);
     }
-});
+  })();
+}); // ← closes the first client.once('ready')
+
 // --------------------
 // Second client.once: (AI handler registration only, no nesting)
 // --------------------
@@ -342,22 +298,13 @@ client.on('messageCreate', async msg => {
     // First, store the user’s message in the database.
     await storeMessage(userId, "user", msg.content);
 
-    console.log("Is message defined?", typeof message);
-    
     // Call handlePrompt(msg) to generate Mathy's response.
     // IMPORTANT: Ensure that handlePrompt returns the reply text.
     const botResponse = await handlePrompt(msg);
     console.log("Bot response before storing:", botResponse); // Debugging log
     
     // ✅ Store Mathy's response in Redis & PostgreSQL
-    console.log("Message object:", message);
-    if (message.content) {
-        let userInput = message.content.trim();
-        // Proceed with processing
-    } else {
-        console.error("Message content is undefined");
-    }
-    await storeMessage(msg.author.id, "bot", safeBotResponse, "discord");
+    await storeMessage(msg.author.id, "bot", botResponse, "discord");
 
     // Now, store Mathy’s reply as a bot message.
     await storeMessage(userId, "bot", botResponse, "discord");
@@ -367,77 +314,70 @@ client.on('messageCreate', async msg => {
   }
 
   // Custom send command for owner (supports channel ID or channel mention)
-  const sendMatch = msg.content.match(
-  /^!send\s+(?:<#(\d+)>|(\d{17,20}))\s*(\d{1,2}:\d{2}\s*[APMapm]*)?\s*\n\n([\s\S]*)/
-);
-if (sendMatch && msg.author.id === process.env.OWNER_ID) {
-  const channelId = sendMatch[1] || sendMatch[2];
-  const timeString = sendMatch[3]; // Optional time argument
-  const messageContent = sendMatch[4];
-
-  const channel = await client.channels.fetch(channelId).catch(() => null);
-  if (!channel || !channel.isTextBased()) {
-    return msg.channel.send({ content: '❌ Invalid channel ID.' });
-  }
-
-  // Immediate sending if no time is provided
-  if (!timeString) {
-    try {
-      await channel.send({ content: messageContent.trim() });
-      return msg.channel.send({ content: '✅ Message sent immediately.' });
-    } catch (e) {
-      console.error(e);
-      return msg.channel.send({ content: '❌ Failed to send message.' });
+  const sendMatch = msg.content.match(/^!send\s+(?:<#(\d+)>|(\d{17,20}))\s*(\d{1,2}:\d{2}\s*[APMapm]*)?\s*\n\n([\s\S]*)/);
+  if (sendMatch && msg.author.id === process.env.OWNER_ID) {
+    const channelId = sendMatch[1] || sendMatch[2];
+    const timeString = sendMatch[3]; // Optional time argument
+    const messageContent = sendMatch[4];
+  
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel || !channel.isTextBased()) return msg.channel.send('❌ Invalid channel ID.');
+  
+    if (!timeString) {
+      // No time provided, send immediately
+      try {
+        await channel.send(messageContent.trim());
+        return msg.channel.send('✅ Message sent immediately.');
+      } catch (e) {
+        console.error(e);
+        return msg.channel.send('❌ Failed to send message.');
+      }
     }
-  }
-
-  // Parse the provided time string
-  const now = new Date();
-  const timeParts = timeString.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-  if (!timeParts) {
-    return msg.channel.send({ content: '❌ Invalid time format. Use HH:MM AM/PM.' });
-  }
-
-  let hours = parseInt(timeParts[1], 10);
-  let minutes = parseInt(timeParts[2], 10);
-  const period = timeParts[3].toUpperCase();
-  if (period === "PM" && hours < 12) hours += 12;
-  if (period === "AM" && hours === 12) hours = 0;
-
-  // Create a sendTime for today
-  const sendTime = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-    hours,
-    minutes
-  );
-
-  // If sendTime is earlier than now, schedule for the next day
-  if (sendTime < now) sendTime.setDate(sendTime.getDate() + 1);
-  const delay = sendTime.getTime() - now.getTime();
-
-  console.log(`Current Time: ${now}`);
-  console.log(`Scheduled Time: ${sendTime}`);
-  console.log(`Delay (ms): ${delay}`);
-
-  setTimeout(async () => {
-    try {
-      await channel.send({ content: messageContent.trim() });
-      // If you plan to log this scheduled message, use messageContent (or a copy)
-      // rather than message.content (which may be undefined in this callback).
-    } catch (e) {
-      console.error(e);
-      // Note: Avoid using msg.channel.send here if msg is no longer valid.
+  
+    // Parse the time correctly
+    const now = new Date();
+    const timeParts = timeString.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    
+    if (!timeParts) {
+      return msg.channel.send('❌ Invalid time format. Use HH:MM AM/PM.');
     }
-  }, delay);
-
-  msg.channel.send({
-    content: `✅ Message scheduled for ${sendTime.toLocaleTimeString()}`
-  });
-}
+  
+    let hours = parseInt(timeParts[1], 10);
+    let minutes = parseInt(timeParts[2], 10);
+    const period = timeParts[3].toUpperCase();
+  
+    if (period === "PM" && hours < 12) hours += 12;
+    if (period === "AM" && hours === 12) hours = 0;
+  
+    const sendTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+  
+    // If the time has already passed today, schedule for tomorrow
+    if (sendTime < now) sendTime.setDate(sendTime.getDate() + 1);
+  
+    const delay = sendTime.getTime() - now.getTime();
+  
+    // Validate delay before scheduling
+    if (isNaN(delay) || delay < 0) {
+      return msg.channel.send('❌ Error: Invalid delay calculation.');
+    }
+  
+    console.log(`Current Time: ${now}`);
+    console.log(`Scheduled Time: ${sendTime}`);
+    console.log(`Delay (ms): ${delay}`);
+  
+    setTimeout(async () => {
+      try {
+        await channel.send(messageContent.trim());
+      } catch (e) {
+        console.error(e);
+        return msg.channel.send('❌ Failed to send message.');
+      }
+    }, delay);
+  
+    msg.channel.send(`✅ Message scheduled for ${sendTime.toLocaleTimeString()}`);
+  }
   // If no command match, simply return.
-  if (!cmdMatch || cmdMatch[1].toLowerCase() === "send") return;
+  if (!cmdMatch) return;
 
   // For commands, get the corresponding handler.
   const cmd = cmdMatch[1].toLowerCase();
