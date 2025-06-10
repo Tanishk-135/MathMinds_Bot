@@ -9,7 +9,7 @@ const execPromise = util.promisify(exec);
 const cron = require('node-cron');
 const fetch = require('node-fetch');
 const moment = require("moment-timezone");
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -476,50 +476,48 @@ const handlers = {
   );
 },
   graph: async msg => {
-    // Parse the equation from the user's message. 
-    // For example, if the user types:
-    // !graph y = sqrt(1-x^2) + (mod(x) - x)^2
-    // then everything after "!graph" is taken as the equation.
+    // Get the equation provided by the user.
+    // For example: "!graph y = sqrt(1-x^2) + (mod(x) - x)^2"
     const args = msg.content.split(' ').slice(1);
-    if (!args.length)
-      return msg.channel.send('❌ Please provide an equation.');
-      
+    if (!args.length) return msg.channel.send('❌ Please provide an equation.');
+    
     const userEquation = args.join(' ');
     const sanitizedEquation = sanitizeEquation(userEquation);
 
     try {
-      // Read the HTML template which is assumed to be at the repository root.
+      // Read the HTML template with a placeholder for the equation.
       const templatePath = path.join(__dirname, '..', 'desmos_graph.html');
       let htmlContent = await fs.readFile(templatePath, 'utf8');
       
-      // Replace the placeholder (%%EQUATION%%) with the sanitized equation.
+      // Replace the placeholder "%%EQUATION%%" with the sanitized equation.
       htmlContent = htmlContent.replace('%%EQUATION%%', sanitizedEquation);
       
-      // Write the modified HTML to a temporary file.
+      // Write the updated HTML to a temporary file.
       const tempHtmlPath = path.join(__dirname, '..', 'tmp_desmos_graph.html');
       await fs.writeFile(tempHtmlPath, htmlContent, 'utf8');
       
-      // Launch Puppeteer in headless mode.
+      // Launch Puppeteer-Core, specifying the Chromium executable from Termux.
       const browser = await puppeteer.launch({
+        executablePath: '/data/data/com.termux/files/usr/bin/chromium',
         args: ['--no-sandbox', '--disable-setuid-sandbox']
       });
       const page = await browser.newPage();
       const fileUrl = 'file://' + tempHtmlPath;
       
-      // Navigate to the temporary HTML page (which now uses the user&apos;s equation).
+      // Navigate to the temporary HTML file.
       await page.goto(fileUrl, { waitUntil: 'networkidle2' });
       
       // Wait for the Desmos calculator element to render.
       await page.waitForSelector('#calculator', { timeout: 5000 }).catch(() => {});
-      // Extra wait to ensure full rendering.
+      // Extra wait to ensure the graph is fully rendered.
       await page.waitForTimeout(2000);
       
-      // Take a screenshot of the rendered graph.
+      // Capture a screenshot of the page.
       const screenshotPath = path.join(__dirname, '..', 'tmp_desmos_graph.png');
       await page.screenshot({ path: screenshotPath });
       await browser.close();
       
-      // Create an embed with the screenshot attached.
+      // Build an embed message with the screenshot attached.
       const embed = new EmbedBuilder()
         .setTitle('Graph Generated')
         .setDescription(`Graph for equation: \`${sanitizedEquation}\``)
