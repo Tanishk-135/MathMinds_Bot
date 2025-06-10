@@ -427,7 +427,7 @@ ${prompt}
     let reply = res.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, could not fetch an answer.';
     reply = formatMathText(reply);
 
-    const chunks = reply.match(/[^]{1,1900}(?=\n|\s|$)/g) || [];
+    const chunks = reply.match(/[\s\S]{1,1900}/g) || [];
     // After your chunk loop:
     for (const chunk of chunks) {
       await msg.channel.send(chunk.trim());
