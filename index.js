@@ -461,6 +461,7 @@ function findValidExponentSolutions(value) {
 const handlePrompt = async msg => {
   const mentionRegex = new RegExp(`^<@!?${client.user.id}>\\s*`);
   const prompt = msg.content.replace(mentionRegex, '').trim();
+  const userIdent = msg.author.tag;
   if (!prompt) return;
   try {
     const mathPrompt = `
