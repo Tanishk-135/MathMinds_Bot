@@ -112,50 +112,6 @@ function replaceUnicodeSuperscripts(eq) {
   });
 }
 
-function sanitizeForEvaluation(input) {
-  let eq = input.trim();
-
-  // Replace the multiplication dot with an asterisk.
-  eq = eq.replace(/⋅/g, '*');
-
-  // Convert ln( ) to log( ) and handle inverse trigonometric functions.
-  eq = eq.replace(/ln\(/gi, 'log(')
-         .replace(/sin\^-1/gi, 'asin')
-         .replace(/cos\^-1/gi, 'acos')
-         .replace(/tan\^-1/gi, 'atan');
-
-  // Convert mod(...) to abs(...)
-  eq = eq.replace(/mod\(([^)]+)\)/gi, 'abs($1)');
-
-  // Insert explicit multiplication:
-  eq = eq.replace(/(\d)(\()/g, '$1*$2')
-         .replace(/(\))(\d)/g, '$1*$2')
-         .replace(/(\))([a-zA-Z])/g, '$1*$2')
-         .replace(/(\d)([a-zA-Z])/g, '$1*$2');
-
-  // Remove any leading "y =" or "f(x)=" if present.
-  eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
-
-  // Handle equals sign: if present, interpret A = B as A - B.
-  if (eq.includes('=')) {
-      const parts = eq.split('=').map(p => p.trim());
-      if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
-          eq = parts[1];
-      } else {
-          eq = `(${parts[0]}) - (${parts[1]})`;
-      }
-  }
-
-  // Replace any Unicode superscript digits and symbols with caret notation.
-  eq = replaceUnicodeSuperscripts(eq);
-
-  // Replace the Unicode square root symbol.
-  // It matches √ followed by either a parenthesized expression or a simple word.
-  eq = eq.replace(/√\s*(\w+\([^)]*\)|\w+)/g, 'sqrt($1)');
-
-  return eq;
-}
-
 function sanitizeForDisplay(input) {
   let eq = input.trim();
 
@@ -189,6 +145,15 @@ function sanitizeForDisplay(input) {
           eq = `(${parts[0]}) - (${parts[1]})`;
       }
   }
+
+  // Replace Unicode superscript characters for display.
+  eq = replaceUnicodeSuperscripts(eq);
+
+  // Convert Unicode square root symbol for LaTeX display.
+  eq = eq.replace(/√\s*(\w+\([^)]*\)|\w+)/g, '\\sqrt{$1}');
+  
+  return eq;
+}
 
   // Replace Unicode superscript characters for display.
   eq = replaceUnicodeSuperscripts(eq);
