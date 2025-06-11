@@ -32,8 +32,6 @@ const auth = new GoogleAuth({
   ],
 });
 
-
-
 // Client setup
 const client = new Client({
   intents: [
@@ -88,7 +86,7 @@ async function generateGraphUrl(expression, sampleCount = 250) {
 
 // Helper: Convert a string of Unicode superscripts to normal digits/symbols.
 function replaceUnicodeSuperscripts(eq) {
-  return eq.replace(/([\da-zA-Z])([²³⁴⁵⁶⁷⁸⁹⁰]+)/g, (match, base, sup) => {
+  return eq.replace(/([\da-zA-Z])([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+)/g, (match, base, supStr) => {
     const supMap = {
       '⁰': '0',
       '¹': '1',
@@ -99,10 +97,12 @@ function replaceUnicodeSuperscripts(eq) {
       '⁶': '6',
       '⁷': '7',
       '⁸': '8',
-      '⁹': '9'
+      '⁹': '9',
+      '⁺': '+',
+      '⁻': '-'
     };
     let converted = '';
-    for (let char of sup) {
+    for (let char of supStr) {
       converted += supMap[char] || '';
     }
     return base + '^' + converted;
@@ -183,46 +183,49 @@ function sanitizeForDisplay(input) {
 
 function sanitizeForDisplay(input) {
   let eq = input.trim();
-
-  // Replace multiplication dot with spaced asterisk.
+  
+  // Replace multiplication dot with spaced asterisk for clarity.
   eq = eq.replace(/⋅/g, ' * ');
-
-  // Convert ln( ) to log( ) and inverse trig functions for display.
+  
+  // Convert ln( ) to log( ) for display and handle inverse trig functions.
   eq = eq.replace(/ln\(/gi, 'log(')
          .replace(/sin\^-1/gi, '\\arcsin')
          .replace(/cos\^-1/gi, '\\arccos')
          .replace(/tan\^-1/gi, '\\arctan');
-
+  
   // Convert mod(...) to absolute value notation.
   eq = eq.replace(/mod\(([^)]+)\)/gi, '|$1|');
-
-  // Insert multiplication explicitly:
-  eq = eq.replace(/(\d)(\()/g, '$1 * $2')
-         .replace(/(\))(\d)/g, '$1 * $2')
-         .replace(/(\))([a-zA-Z])/g, '$1 * $2')
-         .replace(/(\d)([a-zA-Z])/g, '$1 * $2');
-
-  // Remove any leading "y =" or "f(x)=".
+  
+  // Insert explicit multiplication:
+  // Digit before a left parenthesis.
+  eq = eq.replace(/(\d)(\()/g, '$1 * $2');
+  // Closing parenthesis before a digit.
+  eq = eq.replace(/(\))(\d)/g, '$1 * $2');
+  // Closing parenthesis before a letter.
+  eq = eq.replace(/(\))([a-zA-Z])/g, '$1 * $2');
+  // Digit before a letter.
+  eq = eq.replace(/(\d)([a-zA-Z])/g, '$1 * $2');
+  
+  // Remove any leading "y =" or "f(x)=" if present.
   eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
-
+  
   // Handle equals sign for display.
   if (eq.includes('=')) {
-      const parts = eq.split('=').map(p => p.trim());
-      if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
-          eq = parts[1];
-      } else {
-          eq = `(${parts[0]}) - (${parts[1]})`;
-      }
+    const parts = eq.split('=').map(p => p.trim());
+    if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
+      eq = parts[1];
+    } else {
+      eq = `(${parts[0]}) - (${parts[1]})`;
+    }
   }
-
-  // Replace superscript Unicode symbols.
-  eq = eq.replace(/²/g, '^2')
-         .replace(/³/g, '^3');
-
+  
+  // Replace Unicode superscript characters for display.
+  eq = replaceUnicodeSuperscripts(eq);
+  
   // Convert Unicode square root symbol for LaTeX display.
-  // For display, we can convert "√something" into "\sqrt{something}".
+  // This regex matches the square root symbol followed by a word or parenthesized expression.
   eq = eq.replace(/√\s*\(?\s*([^) \t]+)\s*\)?/g, '\\sqrt{$1}');
-
+  
   return eq;
 }
 
