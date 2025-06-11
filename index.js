@@ -86,10 +86,36 @@ async function generateGraphUrl(expression, sampleCount = 250) {
   return chartUrl;
 }
 
+// Helper: Convert a string of Unicode superscripts to normal digits/symbols.
+function convertSuperscripts(supStr) {
+  const supMap = {
+    '⁰': '0',
+    '¹': '1',
+    '²': '2',
+    '³': '3',
+    '⁴': '4',
+    '⁵': '5',
+    '⁶': '6',
+    '⁷': '7',
+    '⁸': '8',
+    '⁹': '9',
+    '⁺': '+',
+    '⁻': '-'
+  };
+  return supStr.split('').map(ch => supMap[ch] || '').join('');
+}
+
+function replaceUnicodeSuperscripts(eq) {
+  // This regex finds a base (digit or letter) followed by one or more superscript characters.
+  return eq.replace(/([\da-zA-Z])([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+)/g, (match, base, supStr) => {
+    return base + '^' + convertSuperscripts(supStr);
+  });
+}
+
 function sanitizeForEvaluation(input) {
   let eq = input.trim();
 
-  // Replace multiplication dot with an asterisk.
+  // Replace the multiplication dot with an asterisk.
   eq = eq.replace(/⋅/g, '*');
 
   // Convert ln( ) to log( ) and handle inverse trigonometric functions.
@@ -102,7 +128,6 @@ function sanitizeForEvaluation(input) {
   eq = eq.replace(/mod\(([^)]+)\)/gi, 'abs($1)');
 
   // Insert explicit multiplication:
-  // Between a digit and an opening parenthesis, or between a closing parenthesis and a digit/letter.
   eq = eq.replace(/(\d)(\()/g, '$1*$2')
          .replace(/(\))(\d)/g, '$1*$2')
          .replace(/(\))([a-zA-Z])/g, '$1*$2')
@@ -111,7 +136,7 @@ function sanitizeForEvaluation(input) {
   // Remove any leading "y =" or "f(x)=" if present.
   eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
 
-  // Handle equals sign:
+  // Handle equals sign: if present, interpret A = B as A - B.
   if (eq.includes('=')) {
       const parts = eq.split('=').map(p => p.trim());
       if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
@@ -120,6 +145,59 @@ function sanitizeForEvaluation(input) {
           eq = `(${parts[0]}) - (${parts[1]})`;
       }
   }
+
+  // Replace any Unicode superscript digits and symbols with caret notation.
+  eq = replaceUnicodeSuperscripts(eq);
+
+  // Replace the Unicode square root symbol.
+  // It matches √ followed by either a parenthesized expression or a simple word.
+  eq = eq.replace(/√\s*(\w+\([^)]*\)|\w+)/g, 'sqrt($1)');
+
+  return eq;
+}
+
+function sanitizeForDisplay(input) {
+  let eq = input.trim();
+
+  // Replace multiplication dot with spaced asterisk for clarity.
+  eq = eq.replace(/⋅/g, ' * ');
+
+  // Convert ln( ) to log( ) for display and handle inverse trig functions.
+  eq = eq.replace(/ln\(/gi, 'log(')
+         .replace(/sin\^-1/gi, '\\arcsin')
+         .replace(/cos\^-1/gi, '\\arccos')
+         .replace(/tan\^-1/gi, '\\arctan');
+
+  // Convert mod(...) to absolute value notation.
+  eq = eq.replace(/mod\(([^)]+)\)/gi, '|$1|');
+
+  // Insert multiplication explicitly.
+  eq = eq.replace(/(\d)(\()/g, '$1 * $2')
+         .replace(/(\))(\d)/g, '$1 * $2')
+         .replace(/(\))([a-zA-Z])/g, '$1 * $2')
+         .replace(/(\d)([a-zA-Z])/g, '$1 * $2');
+
+  // Remove any leading "y =" or "f(x)=" if present.
+  eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
+
+  // Handle equals sign for display.
+  if (eq.includes('=')) {
+      const parts = eq.split('=').map(p => p.trim());
+      if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
+          eq = parts[1];
+      } else {
+          eq = `(${parts[0]}) - (${parts[1]})`;
+      }
+  }
+
+  // Replace Unicode superscript characters for display.
+  eq = replaceUnicodeSuperscripts(eq);
+
+  // Convert Unicode square root symbol for LaTeX display.
+  eq = eq.replace(/√\s*(\w+\([^)]*\)|\w+)/g, '\\sqrt{$1}');
+  
+  return eq;
+}
 
   // Replace superscript Unicode: ² -> ^2, ³ -> ^3 (add more if needed).
   eq = eq.replace(/²/g, '^2')
