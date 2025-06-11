@@ -791,6 +791,21 @@ const handlers = {
       return msg.channel.send(`❌ Error parsing equation: ${err.message}`);
     }
     
+    // Calculate dynamic min and max for the y-axis.
+    let yMin = Math.min(...data.yValues);
+    let yMax = Math.max(...data.yValues);
+    
+    // Provide some padding if yMin equals yMax or to extend the view a bit.
+    if (yMin === yMax) {
+      yMin -= 1;
+      yMax += 1;
+    } else {
+      // Optionally add a 10% padding on each side.
+      const padding = (yMax - yMin) * 0.1;
+      yMin -= padding;
+      yMax += padding;
+    }
+    
     // Build the QuickChart configuration.
     const qc = new QuickChart();
     qc.setConfig({
@@ -814,7 +829,11 @@ const handlers = {
         },
         scales: {
           x: { title: { display: true, text: 'x' } },
-          y: { title: { display: true, text: 'y' } }
+          y: { 
+            title: { display: true, text: 'y' },
+            min: yMin,
+            max: yMax
+          }
         }
       }
     });
