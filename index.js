@@ -90,18 +90,18 @@ async function generateGraphUrl(expression, sampleCount = 250) {
 // Helper: Convert a string of Unicode superscripts to their normal equivalents.
 function convertSuperscripts(supStr) {
   const supMap = {
-    '⁰': '0',
-    '¹': '1',
-    '²': '2',
-    '³': '3',
-    '⁴': '4',
-    '⁵': '5',
-    '⁶': '6',
-    '⁷': '7',
-    '⁸': '8',
-    '⁹': '9',
-    '⁺': '+',
-    '⁻': '-'
+    '\u2070': '0',   // ⁰
+    '\u00B9': '1',   // ¹
+    '\u00B2': '2',   // ²
+    '\u00B3': '3',   // ³
+    '\u2074': '4',   // ⁴
+    '\u2075': '5',   // ⁵
+    '\u2076': '6',   // ⁶
+    '\u2077': '7',   // ⁷
+    '\u2078': '8',   // ⁸
+    '\u2079': '9',   // ⁹
+    '\u207A': '+',   // ⁺
+    '\u207B': '-'    // ⁻
   };
   let result = '';
   for (let char of supStr) {
@@ -111,8 +111,11 @@ function convertSuperscripts(supStr) {
 }
 
 // Helper: Replace Unicode superscript sequences following a base with caret notation.
+// We match both U+2070 and the older U+00B[1-3] plus the rest of U+2074–U+2079, etc.
 function replaceUnicodeSuperscripts(eq) {
-  return eq.replace(/([\da-zA-Z])([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+)/g, (match, base, supStr) => {
+  // Build a character class that includes: 
+  // \u2070, \u00B9, \u00B2, \u00B3, and \u2074-\u2079, \u207A, \u207B.
+  return eq.replace(/([\da-zA-Z])([\u2070\u00B9\u00B2\u00B3\u2074-\u2079\u207A\u207B]+)/g, (match, base, supStr) => {
     return base + '^' + convertSuperscripts(supStr);
   });
 }
@@ -168,32 +171,24 @@ function sanitizeForEvaluation(input) {
 
   // 1. Remove any leading "y =" or "f(x)=" if present.
   eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
-  console.log('[Debug] After removing leading variable:', eq);
-  
   // 2. Replace the multiplication dot with an asterisk.
   eq = eq.replace(/⋅/g, '*');
-  
-  // 3. Convert ln( ) to log( ) and inverse trig functions.
+  // 3. Convert ln( ) to log( ) and handle inverse trig functions.
   eq = eq.replace(/ln\(/gi, 'log(')
          .replace(/sin\^-1/gi, 'asin')
          .replace(/cos\^-1/gi, 'acos')
          .replace(/tan\^-1/gi, 'atan');
-
   // 4. Convert mod(...) to abs(...).
   eq = eq.replace(/mod\(([^)]+)\)/gi, 'abs($1)');
-
-  // 5. Insert explicit multiplication.
+  // 5. Insert explicit multiplication:
   eq = eq.replace(/(\d)(\()/g, '$1*$2')
          .replace(/(\))(\d)/g, '$1*$2')
          .replace(/(\))([a-zA-Z])/g, '$1*$2')
          .replace(/(\d)([a-zA-Z])/g, '$1*$2');
-  console.log('[Debug] Before superscript replacement:', eq);
 
   // 6. Replace Unicode superscript characters.
   eq = replaceUnicodeSuperscripts(eq);
-  console.log('[Debug] After superscript replacement:', eq);
-
-  // 7. Handle equals sign, if present.
+  // 7. Handle equals sign: if present, convert "A = B" appropriately.
   if (eq.includes('=')) {
     const parts = eq.split('=').map(p => p.trim());
     if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
@@ -202,11 +197,9 @@ function sanitizeForEvaluation(input) {
       eq = `(${parts[0]})-(${parts[1]})`;
     }
   }
-
   // 8. Replace Unicode square root symbol.
   eq = eq.replace(/√\s*\(?\s*([^) \t]+)\s*\)?/g, 'sqrt($1)');
-  console.log('[Debug] Final sanitized expression:', eq);
-
+  
   return eq;
 }
 
