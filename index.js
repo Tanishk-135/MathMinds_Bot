@@ -154,6 +154,7 @@ function sanitizeForDisplay(input) {
 
   // Replace Unicode superscript characters.
   eq = replaceUnicodeSuperscripts(eq);
+  console.log("After superscript replacement:", eq);
 
   // Convert Unicode square root symbol for LaTeX display.
   eq = eq.replace(/√\s*\(?\s*([^) \t]+)\s*\)?/g, '\\sqrt{$1}');
