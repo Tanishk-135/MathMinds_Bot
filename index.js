@@ -462,7 +462,7 @@ const handlePrompt = async msg => {
   const mentionRegex = new RegExp(`^<@!?${client.user.id}>\\s*`);
   const prompt = msg.content.replace(mentionRegex, '').trim();
   const userIdent = msg.author.tag;
-  console.log(userIndent);
+  console.log(${userIndent});
   if (!prompt) return;
   try {
     const mathPrompt = `
