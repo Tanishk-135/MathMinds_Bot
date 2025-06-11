@@ -92,7 +92,7 @@ function sanitizeForEvaluation(input) {
   // Replace the multiplication dot with an asterisk for evaluation.
   eq = eq.replace(/⋅/g, '*');
 
-  // Convert ln( ) to log( ) for mathjs and handle inverse trig.
+  // Convert ln( ) to log( ) and handle inverse trigonometric functions.
   eq = eq.replace(/ln\(/gi, 'log(')
          .replace(/sin\^-1/gi, 'asin')
          .replace(/cos\^-1/gi, 'acos')
@@ -101,25 +101,25 @@ function sanitizeForEvaluation(input) {
   // Convert mod(...) to abs(...)
   eq = eq.replace(/mod\(([^)]+)\)/gi, 'abs($1)');
 
-  // Insert explicit multiplication (e.g. "5x" becomes "5*x")
+  // Insert explicit multiplication:
+  // Insert multiplication between a digit and an opening parenthesis.
+  eq = eq.replace(/(\d)(\()/g, '$1*$2');
+  // Insert multiplication between a closing parenthesis and a digit.
+  eq = eq.replace(/(\))(\d)/g, '$1*$2');
+  // Insert multiplication between a closing parenthesis and a letter.
+  eq = eq.replace(/(\))([a-zA-Z])/g, '$1*$2');
+  // Insert multiplication between a digit and a letter.
   eq = eq.replace(/(\d)([a-zA-Z])/g, '$1*$2');
 
   // Remove any leading "y =" or "f(x)=" if present.
-  if (eq.match(/^y\s*=\s*/i)) {
-      eq = eq.replace(/^y\s*=\s*/i, '');
-  } else if (eq.match(/^f\s*\(\s*x\s*\)\s*=\s*/i)) {
-      eq = eq.replace(/^f\s*\(\s*x\s*\)\s*=\s*/i, '');
-  }
+  eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
 
-  // Handle equals sign: if present, decide how to interpret it.
+  // Handle equals signs:
   if (eq.includes('=')) {
       const parts = eq.split('=').map(p => p.trim());
-      // If the left-hand side explicitly is "y" or "f(x)", use the right-hand side.
       if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
           eq = parts[1];
       } else {
-          // Otherwise assume the user meant an implicit equation:
-          // interpret A = B as A - B.
           eq = `(${parts[0]}) - (${parts[1]})`;
       }
   }
@@ -128,29 +128,29 @@ function sanitizeForEvaluation(input) {
 
 function sanitizeForDisplay(input) {
   let eq = input.trim();
-  
-  // Replace multiplication dot with a space+asterisk+space for clarity.
+
+  // Replace multiplication dot with a spaced asterisk.
   eq = eq.replace(/⋅/g, ' * ');
-  
-  // Convert inverse trig functions for display
-  eq = eq.replace(/sin\^-1/gi, '\\arcsin')
+
+  // Convert natural log and inverse trig functions for display.
+  eq = eq.replace(/ln\(/gi, 'log(')
+         .replace(/sin\^-1/gi, '\\arcsin')
          .replace(/cos\^-1/gi, '\\arccos')
          .replace(/tan\^-1/gi, '\\arctan');
-  
+
   // Convert mod(...) to absolute value notation.
   eq = eq.replace(/mod\(([^)]+)\)/gi, '|$1|');
-  
-  // Insert space between numbers and letters.
-  eq = eq.replace(/(\d)([a-zA-Z])/g, '$1 $2');
-  
-  // Remove leading "y =" or "f(x)=" if present.
-  if (eq.match(/^y\s*=\s*/i)) {
-      eq = eq.replace(/^y\s*=\s*/i, '');
-  } else if (eq.match(/^f\s*\(\s*x\s*\)\s*=\s*/i)) {
-      eq = eq.replace(/^f\s*\(\s*x\s*\)\s*=\s*/i, '');
-  }
-  
-  // For equations with an equals sign, adjust the displayed expression similarly.
+
+  // Insert multiplication explicitly for display:
+  eq = eq.replace(/(\d)(\()/g, '$1 * $2')
+         .replace(/(\))(\d)/g, '$1 * $2')
+         .replace(/(\))([a-zA-Z])/g, '$1 * $2')
+         .replace(/(\d)([a-zA-Z])/g, '$1 * $2');
+
+  // Remove any leading "y =" or "f(x)=" if present.
+  eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
+
+  // Handle equals sign: if present, display appropriately.
   if (eq.includes('=')) {
       const parts = eq.split('=').map(p => p.trim());
       if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
@@ -159,7 +159,7 @@ function sanitizeForDisplay(input) {
           eq = `(${parts[0]}) - (${parts[1]})`;
       }
   }
-  
+
   // Convert sqrt(...) for LaTeX display.
   eq = eq.replace(/sqrt\(([^)]+)\)/gi, '\\sqrt{$1}');
   
