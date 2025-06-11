@@ -761,103 +761,114 @@ const handlers = {
   );
 },
   graph: async msg => {
-    // Get the command arguments (everything after "!graph")
-    let args = msg.content.split(' ').slice(1);
-    if (!args.length) {
-      return msg.channel.send('❌ Please provide an equation.');
-    }
-    
-    // Check if the last argument is a number. If so, treat it as the sample count.
-    let sampleCount = 250; // Default sample count
-    const lastArg = args[args.length - 1];
-    if (!isNaN(lastArg)) {
-      sampleCount = parseInt(lastArg);
-      args.pop(); // Remove the sample count from the equation arguments
-    }
-    
-    // The remaining args become the equation.
-    const userInput = args.join(' ');
-    
-    // Produce two sanitized versions:
-    const evalExpr = sanitizeForEvaluationV2(userInput);
-    const displayExpr = sanitizeForDisplay(userInput);
-    
-    let data;
-    try {
-      // Generate data points from x in [-10, 10] using the specified sample count.
-      data = generateDataPoints(evalExpr, [-10, 10], sampleCount);
-    } catch (err) {
-      console.error('Error generating data points:', err);
-      return msg.channel.send(`❌ Error parsing equation: ${err.message}`);
-    }
-    
-    // Calculate dynamic min and max for the y-axis.
-    let yMin = Math.min(...data.yValues);
-    let yMax = Math.max(...data.yValues);
-    
-    // Provide some padding if yMin equals yMax or to extend the view a bit.
-    if (yMin === yMax) {
-      yMin -= 1;
-      yMax += 1;
-    } else {
-      // Optionally add a 10% padding on each side.
-      const padding = (yMax - yMin) * 0.1;
-      yMin -= padding;
-      yMax += padding;
-    }
-    
-    // Build the QuickChart configuration.
-    const qc = new QuickChart();
-    qc.setConfig({
-      type: 'line',
-      data: {
-        labels: data.xValues,
-        datasets: [{
-          label: `y = ${displayExpr}`,
-          data: data.yValues,
-          borderColor: 'blue',
-          fill: false,
-          pointRadius: 0,          // Remove the dots from the graph
-          pointHoverRadius: 0,     // Remove hover markers
-          tension: 0.3             // Smooth the line
-        }]
+  // Get the command arguments (everything after "!graph")
+  let args = msg.content.split(' ').slice(1);
+  if (!args.length) {
+    return msg.channel.send('❌ Please provide an equation.');
+  }
+  
+  // Check if the last argument is a number. If so, treat it as the sample count.
+  let sampleCount = 250; // Default sample count
+  const lastArg = args[args.length - 1];
+  if (!isNaN(lastArg)) {
+    sampleCount = parseInt(lastArg);
+    args.pop(); // Remove the sample count from the equation arguments
+  }
+  
+  // The remaining args become the equation.
+  const userInput = args.join(' ');
+  
+  // Produce two sanitized versions:
+  const evalExpr = sanitizeForEvaluationV2(userInput);
+  const displayExpr = sanitizeForDisplay(userInput);
+  
+  let data;
+  try {
+    // Generate data points from x in [-10, 10] using the specified sample count.
+    data = generateDataPoints(evalExpr, [-10, 10], sampleCount);
+  } catch (err) {
+    console.error('Error generating data points:', err);
+    return msg.channel.send(`❌ Error parsing equation: ${err.message}`);
+  }
+  
+  // Calculate dynamic y-axis bounds
+  let yMin = Math.min(...data.yValues);
+  let yMax = Math.max(...data.yValues);
+  let diff = yMax - yMin;
+  
+  // If there is minimal variation, use a wider fixed range (e.g. -50 to 50)
+  if (diff < 0.001) {
+    yMin = -50;
+    yMax = 50;
+  }
+  // Otherwise, if the dynamic range is too small compared to the default (-10 to 10), enforce the default range.
+  else if (yMin > -10 && yMax < 10) {
+    yMin = -10;
+    yMax = 10;
+  }
+  // Or if the dynamic range is larger than the default, use dynamic range with padding (10%).
+  else {
+    const padding = diff * 0.1;
+    yMin -= padding;
+    yMax += padding;
+  }
+  
+  // Build the QuickChart configuration with fixed x-axis range and the dynamic y-axis range.
+  const qc = new QuickChart();
+  qc.setConfig({
+    type: 'line',
+    data: {
+      labels: data.xValues,
+      datasets: [{
+        label: `y = ${displayExpr}`,
+        data: data.yValues,
+        borderColor: 'blue',
+        fill: false,
+        pointRadius: 0,       // Remove the dots from the graph
+        pointHoverRadius: 0,  // Remove hover markers
+        tension: 0.3          // Smooth the line
+      }]
+    },
+    options: {
+      title: {
+        display: true,
+        text: `Graph of y = ${displayExpr}`
       },
-      options: {
-        title: {
-          display: true,
-          text: `Graph of y = ${displayExpr}`
+      scales: {
+        x: { 
+          title: { display: true, text: 'x' },
+          min: -10,
+          max: 10
         },
-        scales: {
-          x: { title: { display: true, text: 'x' } },
-          y: { 
-            title: { display: true, text: 'y' },
-            min: yMin,
-            max: yMax
-          }
+        y: { 
+          title: { display: true, text: 'y' },
+          min: yMin,
+          max: yMax
         }
       }
-    });
-    qc.setWidth(800).setHeight(400).setDevicePixelRatio(2);
-    
-    // Attempt to get a shortened URL for the chart.
-    let chartUrl;
-    try {
-      chartUrl = await qc.getShortUrl();
-    } catch (err) {
-      console.error("Error getting short URL:", err);
-      chartUrl = qc.getUrl();
     }
-    console.log("Chart URL:", chartUrl); // Debug: log the URL
-    
-    // Build and send the Discord embed.
-    const embed = new EmbedBuilder()
-      .setTitle('Graph Generated')
-      .setDescription(`Graph for equation: \`${userInput}\` interpreted as y = ${displayExpr}\n[Direct Link](${chartUrl})`)
-      .setColor(0x3498db)
-      .setImage(chartUrl);
-    
-    return msg.channel.send({ embeds: [embed] });
-  },
+  });
+  qc.setWidth(800).setHeight(400).setDevicePixelRatio(2);
+  
+  // Attempt to get a shortened URL for the chart.
+  let chartUrl;
+  try {
+    chartUrl = await qc.getShortUrl();
+  } catch (err) {
+    console.error("Error getting short URL:", err);
+    chartUrl = qc.getUrl();
+  }
+  console.log("Chart URL:", chartUrl); // Debug: log the URL
+  
+  // Build and send the Discord embed.
+  const embed = new EmbedBuilder()
+    .setTitle('Graph Generated')
+    .setDescription(`Graph for equation: \`${userInput}\` interpreted as y = ${displayExpr}\n[Direct Link](${chartUrl})`)
+    .setColor(0x3498db)
+    .setImage(chartUrl);
+  
+  return msg.channel.send({ embeds: [embed] });
+},
   mute: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
     const m = msg.mentions.members.first();
