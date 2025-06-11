@@ -87,22 +87,26 @@ async function generateGraphUrl(expression, sampleCount = 250) {
 }
 
 // Helper: Convert a string of Unicode superscripts to normal digits/symbols.
-function convertSuperscripts(supStr) {
-  const supMap = {
-    '⁰': '0',
-    '¹': '1',
-    '²': '2',
-    '³': '3',
-    '⁴': '4',
-    '⁵': '5',
-    '⁶': '6',
-    '⁷': '7',
-    '⁸': '8',
-    '⁹': '9',
-    '⁺': '+',
-    '⁻': '-'
-  };
-  return supStr.split('').map(ch => supMap[ch] || '').join('');
+function replaceUnicodeSuperscripts(eq) {
+  return eq.replace(/([\da-zA-Z])([²³⁴⁵⁶⁷⁸⁹⁰]+)/g, (match, base, sup) => {
+    const supMap = {
+      '⁰': '0',
+      '¹': '1',
+      '²': '2',
+      '³': '3',
+      '⁴': '4',
+      '⁵': '5',
+      '⁶': '6',
+      '⁷': '7',
+      '⁸': '8',
+      '⁹': '9'
+    };
+    let converted = '';
+    for (let char of sup) {
+      converted += supMap[char] || '';
+    }
+    return base + '^' + converted;
+  });
 }
 
 function replaceUnicodeSuperscripts(eq) {
