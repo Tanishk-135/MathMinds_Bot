@@ -761,114 +761,125 @@ const handlers = {
   );
 },
   graph: async msg => {
-  // Get the command arguments (everything after "!graph")
-  let args = msg.content.split(' ').slice(1);
-  if (!args.length) {
-    return msg.channel.send('❌ Please provide an equation.');
-  }
-  
-  // Check if the last argument is a number. If so, treat it as the sample count.
-  let sampleCount = 250; // Default sample count
-  const lastArg = args[args.length - 1];
-  if (!isNaN(lastArg)) {
-    sampleCount = parseInt(lastArg);
-    args.pop(); // Remove the sample count from the equation arguments
-  }
-  
-  // The remaining args become the equation.
-  const userInput = args.join(' ');
-  
-  // Produce two sanitized versions (for evaluation and display):
-  const evalExpr = sanitizeForEvaluationV2(userInput);
-  const displayExpr = sanitizeForDisplay(userInput);
-  
-  let data;
-  try {
-    // Generate data points from x in [-10, 10] using the specified sample count.
-    data = generateDataPoints(evalExpr, [-10, 10], sampleCount);
-  } catch (err) {
-    console.error('Error generating data points:', err);
-    return msg.channel.send(`❌ Error parsing equation: ${err.message}`);
-  }
-  
-  // Calculate dynamic y-axis bounds.
-  const validYValues = data.yValues.filter(v => !isNaN(v));
-  const computedYMin = Math.min(...validYValues);
-  const computedYMax = Math.max(...validYValues);
-  const diff = computedYMax - computedYMin;
-  
-  let yMin, yMax;
-  if (diff < 0.001) {
-    // Nearly flat function: use a broad range.
-    yMin = -50;
-    yMax = 50;
-  } else if (computedYMin >= -10 && computedYMax <= 10) {
-    // Data lies entirely within the default: force default range.
-    yMin = -10;
-    yMax = 10;
-  } else {
-    // Otherwise, dynamically adjust with some padding.
-    const padding = diff * 0.1;
-    yMin = computedYMin - padding;
-    yMax = computedYMax + padding;
-  }
-  
-  // Build the QuickChart configuration.
-  const qc = new QuickChart();
-  qc.setConfig({
-    type: 'line',
-    data: {
-      labels: data.xValues,
-      datasets: [{
-        label: `y = ${displayExpr}`,
-        data: data.yValues,
-        borderColor: 'blue',
-        fill: false,
-        pointRadius: 0,          // Remove dots from the graph.
-        pointHoverRadius: 0,     // Remove hover markers.
-        tension: 0.3             // Smooth the line.
-      }]
-    },
-    options: {
-      title: {
-        display: true,
-        text: `Graph of y = ${displayExpr}`
-      },
-      scales: {
-        x: { 
-          title: { display: true, text: 'x' },
-          min: -10,
-          max: 10
-        },
-        y: { 
-          title: { display: true, text: 'y' },
-          min: yMin,
-          max: yMax
-        }
+      // Get the command arguments (everything after "!graph")
+      let args = msg.content.split(' ').slice(1);
+      if (!args.length) {
+        return msg.channel.send('❌ Please provide an equation.');
       }
-    }
-  });
-  qc.setWidth(800).setHeight(400).setDevicePixelRatio(2);
-  
-  // Attempt to get a shortened URL for the chart.
-  let chartUrl;
-  try {
-    chartUrl = await qc.getShortUrl();
-  } catch (err) {
-    console.error("Error getting short URL:", err);
-    chartUrl = qc.getUrl();
-  }
-  console.log("Chart URL:", chartUrl);
-  
-  // Build and send the Discord embed.
-  const embed = new EmbedBuilder()
-    .setTitle('Graph Generated')
-    .setDescription(`Graph for equation: \`${userInput}\` interpreted as y = ${displayExpr}\n[Direct Link](${chartUrl})`)
-    .setColor(0x3498db)
-    .setImage(chartUrl);
-  
-  return msg.channel.send({ embeds: [embed] });
-},
+      
+      // Check if the last argument is a number. If so, treat it as the sample count.
+      let sampleCount = 250; // Default sample count
+      const lastArg = args[args.length - 1];
+      if (!isNaN(lastArg)) {
+        sampleCount = parseInt(lastArg);
+        args.pop(); // Remove the sample count from the equation arguments
+      }
+      
+      // The remaining args become the equation.
+      const userInput = args.join(' ');
+      
+      // Produce two sanitized versions (for evaluation and display):
+      const evalExpr = sanitizeForEvaluationV2(userInput);
+      const displayExpr = sanitizeForDisplay(userInput);
+      
+      let data;
+      try {
+        // Generate data points from x in [-10, 10] using the specified sample count.
+        data = generateDataPoints(evalExpr, [-10, 10], sampleCount);
+      } catch (err) {
+        console.error('Error generating data points:', err);
+        return msg.channel.send(`❌ Error parsing equation: ${err.message}`);
+      }
+      
+      // Calculate the dynamic y-axis bounds.
+      const validYValues = data.yValues.filter(v => !isNaN(v));
+      const computedYMin = Math.min(...validYValues);
+      const computedYMax = Math.max(...validYValues);
+      const computedDiff = computedYMax - computedYMin;
+      
+      let yMin, yMax;
+      if (computedDiff === 0) {
+        // Perfectly flat function → just use the default viewport.
+        yMin = -10;
+        yMax = 10;
+      }
+      // If there's very slight movement (but not none) then expand the viewport.
+      else if (computedDiff < 1) { 
+        yMin = -50;
+        yMax = 50;
+      }
+      // If the computed range lies fully within [-10, 10], force the default.
+      else if (computedYMin >= -10 && computedYMax <= 10) {
+        yMin = -10;
+        yMax = 10;
+      }
+      // Otherwise, use a dynamic range with a 10% padding.
+      else {
+        const padding = computedDiff * 0.1;
+        yMin = computedYMin - padding;
+        yMax = computedYMax + padding;
+      }
+      
+      // Build the QuickChart configuration with x fixed to [-10,10]
+      // and y based on the computed logic above.
+      const qc = new QuickChart();
+      qc.setConfig({
+        type: 'line',
+        data: {
+          labels: data.xValues,
+          datasets: [{
+            label: `y = ${displayExpr}`,
+            data: data.yValues,
+            borderColor: 'blue',
+            fill: false,
+            pointRadius: 0,          // Remove the dots from the graph.
+            pointHoverRadius: 0,     // Remove hover markers.
+            tension: 0.3             // Smooth the line.
+          }]
+        },
+        options: {
+          title: {
+            display: true,
+            text: `Graph of y = ${displayExpr}`
+          },
+          scales: {
+            x: { 
+              title: { display: true, text: 'x' },
+              min: -10,
+              max: 10
+            },
+            y: { 
+              title: { display: true, text: 'y' },
+              min: yMin,
+              max: yMax
+            }
+          }
+        }
+      });
+      qc.setWidth(800).setHeight(400).setDevicePixelRatio(2);
+      
+      // Attempt to get a shortened URL for the chart.
+      let chartUrl;
+      try {
+        chartUrl = await qc.getShortUrl();
+      } catch (err) {
+        console.error("Error getting short URL:", err);
+        chartUrl = qc.getUrl();
+      }
+      console.log("Chart URL:", chartUrl);
+      
+      // Build and send the Discord embed.
+      const embed = new EmbedBuilder()
+        .setTitle('Graph Generated')
+        .setDescription(
+          `Graph for equation: \`${userInput}\` interpreted as y = ${displayExpr}\n` +
+          `[Direct Link](${chartUrl})`
+        )
+        .setColor(0x3498db)
+        .setImage(chartUrl);
+      
+      return msg.channel.send({ embeds: [embed] });
+    },
   mute: async msg => {
     if (!msg.member.permissions.has(PermissionFlagsBits.ManageRoles)) return msg.channel.send('❌ No permission.');
     const m = msg.mentions.members.first();
