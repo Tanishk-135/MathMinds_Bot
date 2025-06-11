@@ -89,7 +89,7 @@ async function generateGraphUrl(expression, sampleCount = 250) {
 function sanitizeForEvaluation(input) {
   let eq = input.trim();
 
-  // Replace the multiplication dot with an asterisk for evaluation.
+  // Replace multiplication dot with an asterisk.
   eq = eq.replace(/⋅/g, '*');
 
   // Convert ln( ) to log( ) and handle inverse trigonometric functions.
@@ -102,19 +102,16 @@ function sanitizeForEvaluation(input) {
   eq = eq.replace(/mod\(([^)]+)\)/gi, 'abs($1)');
 
   // Insert explicit multiplication:
-  // Insert multiplication between a digit and an opening parenthesis.
-  eq = eq.replace(/(\d)(\()/g, '$1*$2');
-  // Insert multiplication between a closing parenthesis and a digit.
-  eq = eq.replace(/(\))(\d)/g, '$1*$2');
-  // Insert multiplication between a closing parenthesis and a letter.
-  eq = eq.replace(/(\))([a-zA-Z])/g, '$1*$2');
-  // Insert multiplication between a digit and a letter.
-  eq = eq.replace(/(\d)([a-zA-Z])/g, '$1*$2');
+  // Between a digit and an opening parenthesis, or between a closing parenthesis and a digit/letter.
+  eq = eq.replace(/(\d)(\()/g, '$1*$2')
+         .replace(/(\))(\d)/g, '$1*$2')
+         .replace(/(\))([a-zA-Z])/g, '$1*$2')
+         .replace(/(\d)([a-zA-Z])/g, '$1*$2');
 
   // Remove any leading "y =" or "f(x)=" if present.
   eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
 
-  // Handle equals signs:
+  // Handle equals sign:
   if (eq.includes('=')) {
       const parts = eq.split('=').map(p => p.trim());
       if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
@@ -123,16 +120,27 @@ function sanitizeForEvaluation(input) {
           eq = `(${parts[0]}) - (${parts[1]})`;
       }
   }
+
+  // Replace superscript Unicode: ² -> ^2, ³ -> ^3 (add more if needed).
+  eq = eq.replace(/²/g, '^2')
+         .replace(/³/g, '^3');
+
+  // Replace Unicode square root symbol.
+  // This regex looks for the square root symbol followed by an optional '(',
+  // then captures everything until the next ')' (if exists) or whitespace.
+  // It replaces it with "sqrt(...)".
+  eq = eq.replace(/√\s*\(?\s*([^) \t]+)\s*\)?/g, 'sqrt($1)');
+
   return eq;
 }
 
 function sanitizeForDisplay(input) {
   let eq = input.trim();
 
-  // Replace multiplication dot with a spaced asterisk.
+  // Replace multiplication dot with spaced asterisk.
   eq = eq.replace(/⋅/g, ' * ');
 
-  // Convert natural log and inverse trig functions for display.
+  // Convert ln( ) to log( ) and inverse trig functions for display.
   eq = eq.replace(/ln\(/gi, 'log(')
          .replace(/sin\^-1/gi, '\\arcsin')
          .replace(/cos\^-1/gi, '\\arccos')
@@ -141,16 +149,16 @@ function sanitizeForDisplay(input) {
   // Convert mod(...) to absolute value notation.
   eq = eq.replace(/mod\(([^)]+)\)/gi, '|$1|');
 
-  // Insert multiplication explicitly for display:
+  // Insert multiplication explicitly:
   eq = eq.replace(/(\d)(\()/g, '$1 * $2')
          .replace(/(\))(\d)/g, '$1 * $2')
          .replace(/(\))([a-zA-Z])/g, '$1 * $2')
          .replace(/(\d)([a-zA-Z])/g, '$1 * $2');
 
-  // Remove any leading "y =" or "f(x)=" if present.
+  // Remove any leading "y =" or "f(x)=".
   eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
 
-  // Handle equals sign: if present, display appropriately.
+  // Handle equals sign for display.
   if (eq.includes('=')) {
       const parts = eq.split('=').map(p => p.trim());
       if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
@@ -160,9 +168,14 @@ function sanitizeForDisplay(input) {
       }
   }
 
-  // Convert sqrt(...) for LaTeX display.
-  eq = eq.replace(/sqrt\(([^)]+)\)/gi, '\\sqrt{$1}');
-  
+  // Replace superscript Unicode symbols.
+  eq = eq.replace(/²/g, '^2')
+         .replace(/³/g, '^3');
+
+  // Convert Unicode square root symbol for LaTeX display.
+  // For display, we can convert "√something" into "\sqrt{something}".
+  eq = eq.replace(/√\s*\(?\s*([^) \t]+)\s*\)?/g, '\\sqrt{$1}');
+
   return eq;
 }
 
