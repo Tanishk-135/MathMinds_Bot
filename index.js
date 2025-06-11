@@ -427,48 +427,60 @@ ${prompt}
     let reply = res.data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, could not fetch an answer.';
     reply = formatMathText(reply);
 
+    // ----- NEW PRE-CHUNK GRAPH PROCESSING CODE -----
+    
+    // Split the complete reply text into lines.
+    let lines = reply.split("\n");
+    
+    // Step 1: Find the code block line (with triple-backticks) that contains the placeholder.
+    let placeholderIndex = lines.findIndex(line => 
+      line.includes("```") && line.includes("The graph is going to be generated below")
+    );
+    
+    if (placeholderIndex === -1) {
+      console.log("Placeholder not found in code blocks");
+    } else {
+      // Step 2: Look up one or two lines above for an inline graph expression.
+      // We expect a line like: "Graph of `5x`" that we want to keep.
+      const inlineGraphRegex = /^graph of\s+`([^`]+)`/i;
+      let graphExpr = null;
+      
+      // Check the line immediately above.
+      if (placeholderIndex - 1 >= 0 && inlineGraphRegex.test(lines[placeholderIndex - 1])) {
+        graphExpr = lines[placeholderIndex - 1].match(inlineGraphRegex)[1].trim();
+      }
+      // If not found immediately above, check one more line above.
+      else if (placeholderIndex - 2 >= 0 && inlineGraphRegex.test(lines[placeholderIndex - 2])) {
+        graphExpr = lines[placeholderIndex - 2].match(inlineGraphRegex)[1].trim();
+      } else {
+        console.log("Cannot find inline graph expression one or two lines above the placeholder code block");
+      }
+      
+      // Step 3: If an inline expression was found, validate and generate the graph.
+      if (graphExpr) {
+        const simplePattern = /^[-+]?(\d+(\.\d+)?\s*)?x$/i;
+        if (!simplePattern.test(graphExpr)) {
+          console.log("Extracted graph expression does not match expected simple format. Skipping graph generation.");
+        } else {
+          try {
+            const chartUrl = await generateGraphUrl(graphExpr);
+            // Step 4: Remove/replace the placeholder code block line.
+            // We leave the inline "Graph of `5x`" intact; we simply replace the placeholder line with our graph URL.
+            lines.splice(placeholderIndex, 1, `Graph: [Direct Link to Graph](${chartUrl})`);
+          } catch (err) {
+            console.error("Graph generation error:", err);
+          }
+        }
+      }
+    }
+    
+    // Reassemble the reply from the modified lines.
+    reply = lines.join("\n").trim();
+    // ----- END OF NEW PRE-CHUNK GRAPH PROCESSING CODE -----
+    
     const chunks = reply.match(/[\s\S]{1,1900}/g) || [];
     // After your chunk loop:
     for (const chunk of chunks) {
-      // ---------- NEW PRE-CHUNK GRAPH DETECTION & REMOVAL CODE ----------
-      
-      // Step 1: Split the reply into lines, then check the last two lines for an inline graph expression.
-      let graphExpr = null;
-      const lines = reply.split("\n");
-      const inlineGraphRegex = /^graph of\s+`([^`]+)`/i;
-      
-      // Loop over the last two lines (if available):
-      for (let i = Math.max(0, lines.length - 2); i < lines.length; i++) {
-        const line = lines[i].trim();
-        const match = line.match(inlineGraphRegex);
-        if (match && match[1]) {
-          graphExpr = match[1].trim();
-          // Remove this line from the reply.
-          lines.splice(i, 1);
-          break;
-        }
-      }
-      // Rejoin the lines (the inline graph expression line has now been removed)
-      reply = lines.join("\n").trim();
-      
-      // Step 2: Remove the triple-backtick code block that contains the placeholder.
-      // (The placeholder code block contains the phrase "The graph is going to be generated below")
-      const graphPlaceholderRegex = /```[\s\S]*?The graph is going to be generated below[\s\S]*?```/gi;
-      reply = reply.replace(graphPlaceholderRegex, "").trim();
-      
-      // Step 3: Fallback extraction (if no valid inline expression was found above, try to extract any inline code)
-      if (!graphExpr) {
-        const fallbackMatch = reply.match(/`([^`]+)`/);
-        if (fallbackMatch && fallbackMatch[1]) {
-          graphExpr = fallbackMatch[1].trim();
-        }
-      }
-      
-      // ---------- END OF PRE-CHUNK GRAPH DETECTION & REMOVAL CODE ----------
-      
-      // Now, proceed to split the (cleaned) reply into chunks and send them.
-      const chunks = reply.match(/[\s\S]{1,1900}/g) || [];
-      for (const chunk of chunks) {
         await msg.channel.send(chunk.trim());
       }
       
