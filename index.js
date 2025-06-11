@@ -779,7 +779,7 @@ const handlers = {
     const userInput = args.join(' ');
     
     // Produce two sanitized versions:
-    const evalExpr = sanitizeForEvaluation(userInput);
+    const evalExpr = sanitizeForEvaluationV2(userInput);
     const displayExpr = sanitizeForDisplay(userInput);
     
     let data;
