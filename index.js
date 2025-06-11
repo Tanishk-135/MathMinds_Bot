@@ -85,6 +85,29 @@ async function generateGraphUrl(expression, sampleCount = 250) {
 }
 
 // Helper: Convert a string of Unicode superscripts to normal digits/symbols.
+function convertSuperscripts(supStr) {
+  const supMap = {
+    '⁰': '0',
+    '¹': '1',
+    '²': '2',
+    '³': '3',
+    '⁴': '4',
+    '⁵': '5',
+    '⁶': '6',
+    '⁷': '7',
+    '⁸': '8',
+    '⁹': '9',
+    '⁺': '+',
+    '⁻': '-'
+  };
+  
+  let result = '';
+  for (let char of supStr) {
+    result += supMap[char] || '';
+  }
+  return result;
+}
+
 function replaceUnicodeSuperscripts(eq) {
   return eq.replace(/([\da-zA-Z])([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+)/g, (match, base, supStr) => {
     const supMap = {
@@ -106,13 +129,6 @@ function replaceUnicodeSuperscripts(eq) {
       converted += supMap[char] || '';
     }
     return base + '^' + converted;
-  });
-}
-
-function replaceUnicodeSuperscripts(eq) {
-  // This regex finds a base (digit or letter) followed by one or more superscript characters.
-  return eq.replace(/([\da-zA-Z])([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻]+)/g, (match, base, supStr) => {
-    return base + '^' + convertSuperscripts(supStr);
   });
 }
 
