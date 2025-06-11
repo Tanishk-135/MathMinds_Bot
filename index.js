@@ -445,12 +445,11 @@ ${prompt}
     // Split the complete reply text into lines.
     let lines = reply.split("\n");
     
-    // Step 1: Look for the multi-line code block that contains the placeholder.
-    // We assume a code block line exactly "```" and look for one that has the phrase.
+    // Step 1: Look for the multi-line code block containing the placeholder.
+    // We assume a code block defined by triple-backticks that contains the phrase.
     let blockStart = -1, blockEnd = -1;
     for (let i = 0; i < lines.length; i++) {
       if (lines[i].trim() === "```") {
-        // Found a potential block start; now find its closing triple backticks.
         for (let j = i + 1; j < lines.length; j++) {
           if (lines[j].trim() === "```") {
             const blockContent = lines.slice(i + 1, j).join("\n").toLowerCase();
@@ -469,11 +468,11 @@ ${prompt}
       console.log("Placeholder not found in code blocks");
     } else {
       // Step 2: Look one or two lines above the code block start for an inline graph expression.
-      // We expect a line like: "Graph of `some equation`"
-      const inlineGraphRegex = /^graph of\s+`([^`]+)`/i;
+      // Updated regex: allow zero or more whitespaces after "graph of"
+      const inlineGraphRegex = /graph of\s*`([^`]+)`/i;
       let graphExpr = null;
       
-      // Check one line above the placeholder.
+      // Check one line above.
       if (blockStart - 1 >= 0 && inlineGraphRegex.test(lines[blockStart - 1])) {
         graphExpr = lines[blockStart - 1].match(inlineGraphRegex)[1].trim();
       }
@@ -484,12 +483,13 @@ ${prompt}
         console.log("Cannot find inline graph expression one or two lines above the placeholder code block");
       }
       
-      // Step 3: If an inline expression was found, generate the graph URL regardless of its complexity.
+      // Step 3: If an inline expression was found, generate the graph URL (without imposing a simple
+      // format restriction so that more complex equations can be handled).
       if (graphExpr) {
         try {
           const chartUrl = await generateGraphUrl(graphExpr);
-          // Step 4: Replace the entire placeholder code block with a new line containing the graph URL.
-          // Remove lines from blockStart to blockEnd (inclusive) and insert the new line.
+          // Step 4: Replace the entire placeholder code block (from blockStart up to and including blockEnd)
+          // with a line containing the generated graph URL.
           lines.splice(blockStart, blockEnd - blockStart + 1, `Graph: [Direct Link to Graph](${chartUrl})`);
         } catch (err) {
           console.error("Graph generation error:", err);
