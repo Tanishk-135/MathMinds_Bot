@@ -778,7 +778,7 @@ const handlers = {
   // The remaining args become the equation.
   const userInput = args.join(' ');
   
-  // Produce two sanitized versions:
+  // Produce two sanitized versions (for evaluation and display):
   const evalExpr = sanitizeForEvaluationV2(userInput);
   const displayExpr = sanitizeForDisplay(userInput);
   
@@ -791,29 +791,29 @@ const handlers = {
     return msg.channel.send(`❌ Error parsing equation: ${err.message}`);
   }
   
-  // Calculate dynamic y-axis bounds
-  let yMin = Math.min(...data.yValues);
-  let yMax = Math.max(...data.yValues);
-  let diff = yMax - yMin;
+  // Calculate dynamic y-axis bounds.
+  const validYValues = data.yValues.filter(v => !isNaN(v));
+  const computedYMin = Math.min(...validYValues);
+  const computedYMax = Math.max(...validYValues);
+  const diff = computedYMax - computedYMin;
   
-  // If there is minimal variation, use a wider fixed range (e.g. -50 to 50)
+  let yMin, yMax;
   if (diff < 0.001) {
+    // Nearly flat function: use a broad range.
     yMin = -50;
     yMax = 50;
-  }
-  // Otherwise, if the dynamic range is too small compared to the default (-10 to 10), enforce the default range.
-  else if (yMin > -10 && yMax < 10) {
+  } else if (computedYMin >= -10 && computedYMax <= 10) {
+    // Data lies entirely within the default: force default range.
     yMin = -10;
     yMax = 10;
-  }
-  // Or if the dynamic range is larger than the default, use dynamic range with padding (10%).
-  else {
+  } else {
+    // Otherwise, dynamically adjust with some padding.
     const padding = diff * 0.1;
-    yMin -= padding;
-    yMax += padding;
+    yMin = computedYMin - padding;
+    yMax = computedYMax + padding;
   }
   
-  // Build the QuickChart configuration with fixed x-axis range and the dynamic y-axis range.
+  // Build the QuickChart configuration.
   const qc = new QuickChart();
   qc.setConfig({
     type: 'line',
@@ -824,9 +824,9 @@ const handlers = {
         data: data.yValues,
         borderColor: 'blue',
         fill: false,
-        pointRadius: 0,       // Remove the dots from the graph
-        pointHoverRadius: 0,  // Remove hover markers
-        tension: 0.3          // Smooth the line
+        pointRadius: 0,          // Remove dots from the graph.
+        pointHoverRadius: 0,     // Remove hover markers.
+        tension: 0.3             // Smooth the line.
       }]
     },
     options: {
@@ -858,7 +858,7 @@ const handlers = {
     console.error("Error getting short URL:", err);
     chartUrl = qc.getUrl();
   }
-  console.log("Chart URL:", chartUrl); // Debug: log the URL
+  console.log("Chart URL:", chartUrl);
   
   // Build and send the Discord embed.
   const embed = new EmbedBuilder()
