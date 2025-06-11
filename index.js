@@ -166,47 +166,50 @@ function sanitizeForDisplay(input) {
 function sanitizeForEvaluation(input) {
   let eq = input.trim();
 
-  // Remove any leading "y =" or "f(x)=" if present.
+  // 1. Remove any leading "y =" or "f(x)=" if present.
   eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
-
-  // First, replace Unicode superscript characters.
-  eq = replaceUnicodeSuperscripts(eq);
-
-  // Then convert ln( ) to log( ) and handle inverse trig functions.
+  console.log('[Debug] After removing leading variable:', eq);
+  
+  // 2. Replace the multiplication dot with an asterisk.
+  eq = eq.replace(/⋅/g, '*');
+  
+  // 3. Convert ln( ) to log( ) and inverse trig functions.
   eq = eq.replace(/ln\(/gi, 'log(')
          .replace(/sin\^-1/gi, 'asin')
          .replace(/cos\^-1/gi, 'acos')
          .replace(/tan\^-1/gi, 'atan');
 
-  // Replace multiplication dot with asterisk.
-  eq = eq.replace(/⋅/g, '*');
+  // 4. Convert mod(...) to abs(...).
+  eq = eq.replace(/mod\(([^)]+)\)/gi, 'abs($1)');
 
-  // Insert explicit multiplication:
-  // - Digit immediately before a left parenthesis.
+  // 5. Insert explicit multiplication.
   eq = eq.replace(/(\d)(\()/g, '$1*$2')
-         // - Closing parenthesis immediately followed by a digit.
          .replace(/(\))(\d)/g, '$1*$2')
-         // - Closing parenthesis immediately followed by a letter.
          .replace(/(\))([a-zA-Z])/g, '$1*$2')
-         // - Digit immediately followed by a letter.
          .replace(/(\d)([a-zA-Z])/g, '$1*$2');
+  console.log('[Debug] Before superscript replacement:', eq);
 
-  // Handle equals sign: if an equals sign is present, convert "A = B" appropriately.
+  // 6. Replace Unicode superscript characters.
+  eq = replaceUnicodeSuperscripts(eq);
+  console.log('[Debug] After superscript replacement:', eq);
+
+  // 7. Handle equals sign, if present.
   if (eq.includes('=')) {
     const parts = eq.split('=').map(p => p.trim());
     if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
       eq = parts[1];
     } else {
-      eq = `(${parts[0]}) - (${parts[1]})`;
+      eq = `(${parts[0]})-(${parts[1]})`;
     }
   }
 
-  // Finally, replace Unicode square root symbol.
-  // This regex matches "√" followed by either a parenthesized expression or a contiguous word.
-  eq = eq.replace(/√\s*(\w+\([^)]*\)|\w+)/g, 'sqrt($1)');
+  // 8. Replace Unicode square root symbol.
+  eq = eq.replace(/√\s*\(?\s*([^) \t]+)\s*\)?/g, 'sqrt($1)');
+  console.log('[Debug] Final sanitized expression:', eq);
 
   return eq;
 }
+
 // Optional: Export functions if using in a Node.js module.
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
