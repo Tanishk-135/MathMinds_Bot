@@ -87,6 +87,7 @@ async function generateGraphUrl(expression, sampleCount = 250) {
 // Helper: Convert a string of Unicode superscripts to their normal equivalents.
 // Helper: Convert Unicode superscript characters to their normal equivalent.
 // Helper: Convert a string of Unicode superscripts to their normal equivalents.
+// Helper: Convert a string of Unicode superscripts to their normal equivalents.
 function convertSuperscripts(supStr) {
   const supMap = {
     '⁰': '0',
@@ -116,14 +117,58 @@ function replaceUnicodeSuperscripts(eq) {
   });
 }
 
-// Sanitize input for evaluation (for math.js / graph generation)
+// Sanitize input for display (for LaTeX-like formatting or plain text output)
+function sanitizeForDisplay(input) {
+  let eq = input.trim();
+
+  // Replace multiplication dot with a spaced asterisk.
+  eq = eq.replace(/⋅/g, ' * ');
+
+  // Convert ln( ) to log( ) and inverse trig functions for display.
+  eq = eq.replace(/ln\(/gi, 'log(')
+         .replace(/sin\^-1/gi, '\\arcsin')
+         .replace(/cos\^-1/gi, '\\arccos')
+         .replace(/tan\^-1/gi, '\\arctan');
+
+  // Convert mod(...) to absolute value notation.
+  eq = eq.replace(/mod\(([^)]+)\)/gi, '|$1|');
+
+  // Insert explicit multiplication:
+  eq = eq.replace(/(\d)(\()/g, '$1 * $2')
+         .replace(/(\))(\d)/g, '$1 * $2')
+         .replace(/(\))([a-zA-Z])/g, '$1 * $2')
+         .replace(/(\d)([a-zA-Z])/g, '$1 * $2');
+
+  // Remove any leading "y =" or "f(x)=" if present.
+  eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
+
+  // Handle equals sign for display.
+  if (eq.includes('=')) {
+    const parts = eq.split('=').map(p => p.trim());
+    if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
+      eq = parts[1];
+    } else {
+      eq = `(${parts[0]}) - (${parts[1]})`;
+    }
+  }
+
+  // Replace Unicode superscript characters.
+  eq = replaceUnicodeSuperscripts(eq);
+
+  // Convert Unicode square root symbol for LaTeX display.
+  eq = eq.replace(/√\s*\(?\s*([^) \t]+)\s*\)?/g, '\\sqrt{$1}');
+  
+  return eq;
+}
+
+// Sanitize input for evaluation (for math.js or graph generation)
 function sanitizeForEvaluation(input) {
   let eq = input.trim();
 
-  // Replace the multiplication dot with an asterisk.
+  // Replace multiplication dot with an asterisk.
   eq = eq.replace(/⋅/g, '*');
 
-  // Convert ln( ) to log( ) for math.js and also handle inverse trig functions.
+  // Convert ln( ) to log( ) for math.js and handle inverse trig functions.
   eq = eq.replace(/ln\(/gi, 'log(')
          .replace(/sin\^-1/gi, 'asin')
          .replace(/cos\^-1/gi, 'acos')
@@ -133,19 +178,15 @@ function sanitizeForEvaluation(input) {
   eq = eq.replace(/mod\(([^)]+)\)/gi, 'abs($1)');
 
   // Insert explicit multiplication:
-  // Digit immediately before a left parenthesis.
   eq = eq.replace(/(\d)(\()/g, '$1*$2')
-         // Closing parenthesis immediately followed by a digit.
          .replace(/(\))(\d)/g, '$1*$2')
-         // Closing parenthesis immediately followed by a letter.
          .replace(/(\))([a-zA-Z])/g, '$1*$2')
-         // Digit immediately followed by a letter.
          .replace(/(\d)([a-zA-Z])/g, '$1*$2');
 
   // Remove any leading "y =" or "f(x)=" if present.
   eq = eq.replace(/^(y|f\s*\(\s*x\s*\))\s*=\s*/i, '');
 
-  // Handle equal signs: if there's an equals sign, convert "A = B" into "B" (or into "A - B" if appropriate)
+  // If an equals sign is present, convert "A = B" appropriately.
   if (eq.includes('=')) {
     const parts = eq.split('=').map(p => p.trim());
     if (parts[0].toLowerCase() === 'y' || parts[0].toLowerCase() === 'f(x)') {
@@ -159,19 +200,19 @@ function sanitizeForEvaluation(input) {
   eq = replaceUnicodeSuperscripts(eq);
 
   // Replace Unicode square root symbol.
-  // This regex matches "√" followed by either a parenthesized expression or a contiguous word.
   eq = eq.replace(/√\s*(\w+\([^)]*\)|\w+)/g, 'sqrt($1)');
 
   return eq;
 }
-  // Replace Unicode superscript characters.
-  eq = replaceUnicodeSuperscripts(eq);
 
-  // Replace Unicode square root symbol:
-  // This regex matches "√" followed by either a parenthesized expression or a simple word.
-  eq = eq.replace(/√\s*(\w+\([^)]*\)|\w+)/g, 'sqrt($1)');
-
-  return eq;
+// Optional: Export functions if using in a Node.js module.
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    convertSuperscripts,
+    replaceUnicodeSuperscripts,
+    sanitizeForDisplay,
+    sanitizeForEvaluation
+  };
 }
 
 function generateDataPoints(exprStr, domain = [-10, 10], sampleCount = 100) {
