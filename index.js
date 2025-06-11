@@ -90,6 +90,7 @@ async function generateGraphUrl(expression, sampleCount = 250) {
 // Helper: Convert a string of Unicode superscripts to their normal equivalents.
 function convertSuperscripts(supStr) {
   const supMap = {
+    // Superscripts (Digits)
     '\u2070': '0',   // ⁰
     '\u00B9': '1',   // ¹
     '\u00B2': '2',   // ²
@@ -100,9 +101,19 @@ function convertSuperscripts(supStr) {
     '\u2077': '7',   // ⁷
     '\u2078': '8',   // ⁸
     '\u2079': '9',   // ⁹
-    '\u207A': '+',   // ⁺
-    '\u207B': '-'    // ⁻
-  };
+
+    // Subscripts (Digits)
+    '\u2080': '0',   // ₀
+    '\u2081': '1',   // ₁
+    '\u2082': '2',   // ₂
+    '\u2083': '3',   // ₃
+    '\u2084': '4',   // ₄
+    '\u2085': '5',   // ₅
+    '\u2086': '6',   // ₆
+    '\u2087': '7',   // ₇
+    '\u2088': '8',   // ₈
+    '\u2089': '9'    // ₉
+};
   let result = "";
   for (let char of supStr) {
     result += supMap[char] || "";
