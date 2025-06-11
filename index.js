@@ -233,8 +233,8 @@ function sanitizeForEvaluationV2(input) {
   }
   
   // 8. Replace Unicode square root symbol.
-  eq = eq.replace(/√\s*\(?\s*([^) \t]+)\s*\)?/g, "sqrt($1)");
-  console.log("[Debug] Final sanitized output:", eq);
+  eq = eq.replace(/√\s*\(?\s*([^) \t]+)\s*\)?/g, "sqrt($1)")
+         .replace(/\bsqrt\b/gi, "sqrt"); 
   
   return eq;
 }
