@@ -432,24 +432,24 @@ ${prompt}
     // Split the complete reply text into lines.
     let lines = reply.split("\n");
     
-    // Step 1: Find the code block line (with triple-backticks) that contains the placeholder.
-    let placeholderIndex = lines.findIndex(line => 
+    // Step 1: Find the code block line with triple-backticks containing the placeholder.
+    let placeholderIndex = lines.findIndex(line =>
       line.includes("```") && line.includes("The graph is going to be generated below")
     );
     
     if (placeholderIndex === -1) {
       console.log("Placeholder not found in code blocks");
     } else {
-      // Step 2: Look up one or two lines above for an inline graph expression.
-      // We expect a line like: "Graph of `5x`" that we want to keep.
+      // Step 2: Look one or two lines above for an inline graph expression.
+      // We expect a line like: "Graph of `5x`" that we want to leave intact.
       const inlineGraphRegex = /^graph of\s+`([^`]+)`/i;
       let graphExpr = null;
       
-      // Check the line immediately above.
+      // Check the line immediately above the placeholder.
       if (placeholderIndex - 1 >= 0 && inlineGraphRegex.test(lines[placeholderIndex - 1])) {
         graphExpr = lines[placeholderIndex - 1].match(inlineGraphRegex)[1].trim();
       }
-      // If not found immediately above, check one more line above.
+      // If not found, check one more line above.
       else if (placeholderIndex - 2 >= 0 && inlineGraphRegex.test(lines[placeholderIndex - 2])) {
         graphExpr = lines[placeholderIndex - 2].match(inlineGraphRegex)[1].trim();
       } else {
@@ -458,14 +458,14 @@ ${prompt}
       
       // Step 3: If an inline expression was found, validate and generate the graph.
       if (graphExpr) {
+        // Accept only simple expressions like "5x", "3x", or "x", with an optional sign.
         const simplePattern = /^[-+]?(\d+(\.\d+)?\s*)?x$/i;
         if (!simplePattern.test(graphExpr)) {
           console.log("Extracted graph expression does not match expected simple format. Skipping graph generation.");
         } else {
           try {
             const chartUrl = await generateGraphUrl(graphExpr);
-            // Step 4: Remove/replace the placeholder code block line.
-            // We leave the inline "Graph of `5x`" intact; we simply replace the placeholder line with our graph URL.
+            // Replace the placeholder line with a line containing the graph URL.
             lines.splice(placeholderIndex, 1, `Graph: [Direct Link to Graph](${chartUrl})`);
           } catch (err) {
             console.error("Graph generation error:", err);
@@ -483,33 +483,6 @@ ${prompt}
     for (const chunk of chunks) {
         await msg.channel.send(chunk.trim());
       }
-      
-      // After sending the text chunks, validate the extracted graph expression and generate the graph.
-      if (graphExpr) {
-        // Validate that the expression is simple, e.g., "5x" or "3x"
-        const simplePattern = /^[-+]?(\d+(\.\d+)?\s*)?x$/i;
-        if (!simplePattern.test(graphExpr)) {
-          console.log("Extracted graph expression does not match expected simple format (e.g., '5x' or '3x'). Skipping graph generation.");
-        } else {
-          try {
-            const chartUrl = await generateGraphUrl(graphExpr);
-            const embed = new EmbedBuilder()
-              .setTitle('Graph Generated')
-              .setDescription(chartUrl.length < 4000 ? `[Direct Link to Graph](${chartUrl})` : '')
-              .setColor(0x3498db)
-              .setImage(chartUrl);
-            await msg.channel.send({ embeds: [embed] });
-          } catch (err) {
-            console.error("Graph generation error:", err);
-            await msg.channel.send("❌ Sorry, there was an error generating the graph.");
-          }
-        }
-      } else {
-        console.log("No inline graph expression found. No graph will be generated.");
-      }
-      await msg.channel.send(chunk.trim());
-    }
-
   } catch (e) {
     console.error(e);
     return msg.channel.send('⚠️ Failed to get AI response.');
